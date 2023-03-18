@@ -1,6 +1,4 @@
 import re
-
-import function
 import requests
 
 requests.packages.urllib3.disable_warnings()
@@ -43,21 +41,10 @@ class post_extra(FileHandle):
         response = re.findall(email, content)
         return response
 
-    def searCha(self, content):
-        annotation = '(<!-- .*? -->)|[^\x00-\xff]'
-        response = re.findall(annotation, content)
-        return response
-
     def SearchPath(self, content):
         rex = '[\'"](\/[^<>/\\\|:""\\ *\?]+){2,}[\'"]'
         response = re.findall(rex, content)
         return response
-
-    def SearchBlackList(self, url):
-        black_list = FileHandle.Read("../yxh_creator/black.txt")
-        for i in black_list:
-            if i in url:
-                raise ValueError("黑名单")
 
     def tileScan(self, content):
         response = re.findall("<title>(.*?)</title>", content)
