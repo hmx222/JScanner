@@ -1,5 +1,6 @@
 import re
 import requests
+from urllib.parse import urlparse
 
 requests.packages.urllib3.disable_warnings()
 
@@ -103,23 +104,32 @@ class urlHandle(post_extra):
         return [match.group().strip('"').strip("'") for match in result
                 if match.group() not in js_url]
 
-    def check_Url(self, url, geturl):
-        if url[:2] == "//":
-            if geturl[:7] == "http://":
-                url = "http://" + url
-                return url
-            elif geturl[:8] == "https:":
-                url = "https:" + url
-                return url
-        elif url[:1] == "/":
-            if geturl[:7] == "http://":
-                url = "http:/" + url
-                return url
-            elif geturl[:8] == "https:":
-                url = "https:/" + url
-                return url
-        elif url is None:
-            raise
+    def check_Url(self, outurl:str,geturl:str):
+        handled_url = urlparse(geturl)
+        http_url = handled_url.scheme
+        host_url = handled_url.netloc
+        path_url = handled_url.path
+
+        if geturl[:1] == '/':
+            if geturl[:2] == '//':
+                put_url = http_url + ':' + outurl
+                return put_url
+            else:
+                put_url = host_url + '://' + host_url + outurl
+                return put_url
+
+        elif geturl[:2] == './':
+            put_url = http_url + '://' + host_url + outurl
+            return put_url
+
+        elif geturl[:3] == '../':
+            put_url = http_url + '://' + host_url + path_url + '../' + outurl
+            return put_url
+
+        else:
+            put_url = http_url + '://' + host_url + path_url + outurl
+            return put_url
+
 
 
 class otherFunction(post_extra):
@@ -153,17 +163,19 @@ if __name__ == "__main__":
         for blackurl in file.Read(filename='black.txt'):
             if blackurl in found_url:
                 found_url = None
-        option = input("continue?")
+
+        option = input("已经将下次要检索的url放入url.txt,您可以自定义来删除部分，是否需要继续？")
+
         for efound_url in found_url:
             checked_url = url.check_Url(efound_url, eurl)
             # out url
             try:
-                status_coded = url.source_code(checked_url)
+                status_coded = url.status_code(checked_url)
                 got_title = url.title(checked_url)
             except:
                 continue
             else:
-                file.write(content=checked_url + '-----' + status_coded, type='a', filename='result_urls.txt')
+                file.write(content=checked_url + '-----' + str(status_coded), type='a', filename='result_urls.txt')
                 if option == "y":
                     file.write(content=checked_url, type="w", filename="urls.txt")
                 else:
