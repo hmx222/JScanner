@@ -26,7 +26,7 @@ class FileHandle(object):
 
     def write(self, content: str, type: str, filename):
         f = open(filename, type, encoding=self.encode)
-        f.write(content + "\n")
+        f.write('\n' + content)
         f.close()
 
 
@@ -43,7 +43,7 @@ class post_extra(FileHandle):
         return response
 
     def SearchPath(self, content):
-        rex = '[\'"](\/[^<>/\\\|:""\\ *\?]+){2,}[\'"]'
+        rex = '^(?!.*\.(mp4|flv|avi|mp3|wav|jpg|jpeg|gif|png|bmp|css)$)(\.{0,2}/)?[/a-zA-Z0-9_-]+(/[/a-zA-Z0-9_-]+)*$'
         response = re.findall(rex, content)
         return response
 
@@ -104,13 +104,13 @@ class urlHandle(post_extra):
         return [match.group().strip('"').strip("'") for match in result
                 if match.group() not in js_url]
 
-    def check_Url(self, outurl:str,geturl:str):
+    def check_Url(self, outurl: str, geturl: str):
         handled_url = urlparse(geturl)
         http_url = handled_url.scheme
         host_url = handled_url.netloc
         path_url = handled_url.path
 
-        if geturl[:1] == '/':
+        if outurl[:1] == '/':
             if geturl[:2] == '//':
                 put_url = http_url + ':' + outurl
                 return put_url
@@ -118,18 +118,21 @@ class urlHandle(post_extra):
                 put_url = host_url + '://' + host_url + outurl
                 return put_url
 
-        elif geturl[:2] == './':
+        elif outurl[:2] == './':
             put_url = http_url + '://' + host_url + outurl
             return put_url
 
-        elif geturl[:3] == '../':
+        elif outurl[:3] == '../':
             put_url = http_url + '://' + host_url + path_url + '../' + outurl
             return put_url
 
-        else:
-            put_url = http_url + '://' + host_url + path_url + outurl
+        elif outurl[:4] == 'http' or outurl[:4] == 'https':
+            put_url = outurl
             return put_url
 
+        else:
+            put_url = http_url + '://' + host_url + path_url + '/' + outurl
+            return put_url
 
 
 class otherFunction(post_extra):
@@ -151,6 +154,10 @@ if __name__ == "__main__":
 
         found_phone_info = importInfo.SearchPhone(sourceCode)
         found_email_info = importInfo.SearchEmail(sourceCode)
+        for afound_email_info in found_email_info:
+            file.write(content=afound_email_info, type='a', filename='import_Info.txt')
+        for afound_phone_info in found_phone_info:
+            file.write(content=afound_phone_info, type='a', filename='import_Info.txt')
 
         found_info = []
         found_info.extend(found_email_info)
@@ -158,25 +165,43 @@ if __name__ == "__main__":
 
         found_path = []
         found_path.extend(path.SearchPath(sourceCode))
+        for apath in found_path:
+            file.write(content=apath, type='w', filename='path.txt')
 
         found_url = url.extract_URL(sourceCode)
-        for blackurl in file.Read(filename='black.txt'):
-            if blackurl in found_url:
-                found_url = None
+        blacklist = file.Read(filename='black.txt')
 
-        option = input("已经将下次要检索的url放入url.txt,您可以自定义来删除部分，是否需要继续？")
 
-        for efound_url in found_url:
-            checked_url = url.check_Url(efound_url, eurl)
-            # out url
-            try:
-                status_coded = url.status_code(checked_url)
-                got_title = url.title(checked_url)
-            except:
-                continue
-            else:
-                file.write(content=checked_url + '-----' + str(status_coded), type='a', filename='result_urls.txt')
-                if option == "y":
-                    file.write(content=checked_url, type="w", filename="urls.txt")
+        userop = input("是否需要将404与500添加到url.txt当中？")
+        while True:
+            for efound_url in found_url:
+                for eblack in blacklist:
+                    if efound_url in eblack:
+                        efound_url = None
+
+                checked_url = url.check_Url(efound_url, eurl)
+                # out url
+                try:
+                    status_coded = url.status_code(checked_url)
+                    got_title = url.title(checked_url)
+                except:
+                    continue
                 else:
-                    break
+                    if userop == 'y':
+                        file.write(content=checked_url, type="a", filename="urls.txt")
+                        file.write(content=checked_url + '-----' + str(status_coded), type='a', filename='result_urls.txt')
+                    else:
+                        if status_coded > 500 or status_coded == 404:
+                            continue
+                        else:
+                            file.write(content=checked_url, type="a", filename="urls.txt")
+                            file.write(content=checked_url + '-----' + str(status_coded), type='a',
+                                       filename='result_urls.txt')
+
+            option = input("已经将爬取到的url放入url.txt与result_url.txt,是否要继续爬取？（您可以自己修改）")
+            if option == 'y':
+                file.write(content='', type='w', filename='urls.txt')
+                file.write(content='', type='w', filename='path.txt')
+                found_url.extend(file.Read(filename='urls.txt'))
+            else:
+                break
