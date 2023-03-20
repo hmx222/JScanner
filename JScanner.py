@@ -171,13 +171,14 @@ if __name__ == "__main__":
         found_url = url.extract_URL(sourceCode)
         blacklist = file.Read(filename='black.txt')
 
-
         userop = input("是否需要将404与500添加到url.txt当中？")
         while True:
             for efound_url in found_url:
                 for eblack in blacklist:
-                    if efound_url in eblack:
+                    if eblack in efound_url:
                         efound_url = None
+                if efound_url is None:
+                    continue
 
                 checked_url = url.check_Url(efound_url, eurl)
                 # out url
@@ -189,7 +190,8 @@ if __name__ == "__main__":
                 else:
                     if userop == 'y':
                         file.write(content=checked_url, type="a", filename="urls.txt")
-                        file.write(content=checked_url + '-----' + str(status_coded), type='a', filename='result_urls.txt')
+                        file.write(content=checked_url + '-----' + str(status_coded), type='a',
+                                   filename='result_urls.txt')
                     else:
                         if status_coded > 500 or status_coded == 404:
                             continue
