@@ -8,7 +8,7 @@ requests.packages.urllib3.disable_warnings()
 class FileHandle(object):
 
     def __init__(self):
-        self.encode = 'gbk'
+        self.encode = 'utf-8'
 
     def Read(self, filename):
         lines = []
@@ -70,7 +70,8 @@ class urlHandle(post_extra):
                    'referer': 'https://www.baidu.com', "Connection": "close"}
         response = requests.get(url=url, headers=headers, timeout=8, verify=False).text  # 对于输入网站的请求
         got_title = super().tileScan(response)
-        return got_title
+        for atitle in got_title:
+            return atitle
 
     def extract_URL(self, JS):
         pattern_raw = r"""
@@ -197,7 +198,9 @@ if __name__ == "__main__":
                             continue
                         else:
                             file.write(content=checked_url, type="a", filename="urls.txt")
-                            file.write(content=checked_url + '-----' + str(status_coded), type='a',
+                            if url.title(checked_url) is None:
+                                continue
+                            file.write(content=checked_url + '-----' + str(status_coded) + '-----' + url.title(checked_url), type='a',
                                        filename='result_urls.txt')
 
             option = input("已经将爬取到的url放入url.txt与result_url.txt,是否要继续爬取？（您可以自己修改）")
