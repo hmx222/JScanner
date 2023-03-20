@@ -27,7 +27,7 @@ python JScanner.py
 
 4、然后你就能在result_urls.txt发现得到的url；在path.txt得到路径信息；在import_info.txt得到敏感信息
 
-5、推荐在你查看信息的时候使用
+5、推荐在你查看信息后，进行uniq去重，当然后期我会开发
 
 原理图：
 ![1679325040015](https://user-images.githubusercontent.com/60973265/226383307-cc5c8d00-c077-4fd6-ad08-adef1dcc65d1.jpg)
