@@ -1,6 +1,7 @@
 import re
-import requests
 from urllib.parse import urlparse
+
+import requests
 
 requests.packages.urllib3.disable_warnings()
 
