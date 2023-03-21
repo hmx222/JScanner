@@ -6,73 +6,61 @@ import requests
 requests.packages.urllib3.disable_warnings()
 
 
-class FileHandle(object):
-
+class FileHandle:
     def __init__(self):
         self.encode = 'utf-8'
 
-    def Read(self, filename):
-        lines = []
-        file = open(filename, 'r', encoding=self.encode)
-        while True:
-            text = file.readline().strip()
-            if not text:
-                break
-            if text[0] == "#":
-                continue
-            text = text.split(" ")[0]
-            lines.append(text)
-        file.close()
+    def read(self, filename: str) -> list:
+        with open(filename, 'r', encoding=self.encode) as file:
+            lines = [line.strip().split(" ")[0] for line in file if line.strip() and line.strip()[0] != "#"]
         return lines
 
-    def write(self, content: str, type: str, filename):
-        f = open(filename, type, encoding=self.encode)
-        f.write('\n' + content)
-        f.close()
+    def write(self, content: str, mode: str, filename: str) -> bool:
+        with open(filename, mode, encoding=self.encode) as f:
+            f.write('\n' + content)
+            return True
 
 
 class post_extra(FileHandle):
+    phone_regex = r'(?:\d{1,3}\.){3}\d{1,3}|[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*\.[a-zA-Z]{2,4}|[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[012])(?:0[1-9]|[12]\d|3[01])[\dxX]|1[3-9]\d{9}|password'
+    path_regex = r'(?<!\w)(?:(?!\.(?:mp4|flv|avi|mp3|wav|jpg|jpeg|gif|png|bmp|ico|css)$)[./\w-]+)+(\.\w+)?(?!\w)'
+    title_regex = r'<title>(.*?)</title>'
 
-    def SearchPhone(self, content):
-        phone = "^1(3[0-9]|5[0-3,5-9]|7[1-3,5-8]|8[0-9])\d{8}$"  # 对于电话号码的查找
-        response = re.findall(phone, content)
-        return response
-
-    def SearchEmail(self, content):
-        email = '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$'  # 对于邮箱的查找
-        response = re.findall(email, content)
+    def Searchinfo(self, content):
+        response = re.findall(self.phone_regex, content)
         return response
 
     def SearchPath(self, content):
-        rex = '^(?!.*\.(mp4|flv|avi|mp3|wav|jpg|jpeg|gif|png|bmp|ico)$)(\.{0,2}/)?[/\w.-]+(/[/\w.-]+)*(\.\w+)?$'
-        response = re.findall(rex, content)
+        response = re.findall(self.path_regex, content, re.IGNORECASE)
         return response
 
     def tileScan(self, content):
-        response = re.findall("<title>(.*?)</title>", content)
+        response = re.findall(self.title_regex, content)
         return response
 
 
 class urlHandle(post_extra):
-    def status_code(self, url):
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; rv,2.0.1) Gecko/20100101 Firefox/4.0.1',
-                   'referer': 'https://www.baidu.com', "Connection": "close"}
-        response = requests.get(url=url, headers=headers, timeout=8, verify=False).status_code  # 对于输入网站的请求
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; rv,2.0.1) Gecko/20100101 Firefox/4.0.1',
+               'referer': 'https://www.baidu.com', "Connection": "close"}
+    timeout = 8
+    verify = False
+
+    def get_request(self, url):
+        response = requests.get(url=url, headers=self.headers, timeout=self.timeout, verify=self.verify)
         return response
+
+    def status_code(self, url):
+        response = self.get_request(url)
+        return response.status_code
 
     def source_code(self, url):
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; rv,2.0.1) Gecko/20100101 Firefox/4.0.1',
-                   'referer': 'https://www.baidu.com', "Connection": "close"}
-        response = requests.get(url=url, headers=headers, timeout=8, verify=False).text  # 对于输入网站的请求
-        return response
+        response = self.get_request(url)
+        return response.text
 
     def title(self, url):
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; rv,2.0.1) Gecko/20100101 Firefox/4.0.1',
-                   'referer': 'https://www.baidu.com', "Connection": "close"}
-        response = requests.get(url=url, headers=headers, timeout=8, verify=False).text  # 对于输入网站的请求
-        got_title = super().tileScan(response)
-        for atitle in got_title:
-            return atitle
+        response = self.get_request(url)
+        got_title = super().tileScan(response.text)
+        return got_title[0] if got_title else None
 
     def extract_URL(self, JS):
         pattern_raw = r"""
@@ -106,35 +94,23 @@ class urlHandle(post_extra):
         return [match.group().strip('"').strip("'") for match in result
                 if match.group() not in js_url]
 
-    def check_Url(self, outurl: str, geturl: str):
-        handled_url = urlparse(geturl)
+    def check_url(self, out_url: str, get_url: str):
+        handled_url = urlparse(get_url)
         http_url = handled_url.scheme
         host_url = handled_url.netloc
         path_url = handled_url.path
-
-        if outurl[:1] == '/':
-            if geturl[:2] == '//':
-                put_url = http_url + ':' + outurl
-                return put_url
-            else:
-                put_url = host_url + '://' + host_url + outurl
-                return put_url
-
-        elif outurl[:2] == './':
-            put_url = http_url + '://' + host_url + outurl
-            return put_url
-
-        elif outurl[:3] == '../':
-            put_url = http_url + '://' + host_url + path_url + '../' + outurl
-            return put_url
-
-        elif outurl[:4] == 'http' or outurl[:4] == 'https':
-            put_url = outurl
-            return put_url
-
-        else:
-            put_url = http_url + '://' + host_url + path_url + '/' + outurl
-            return put_url
+        prefix_map = {
+            '/': lambda: http_url + ':' + out_url if get_url.startswith(
+                '//') else host_url + '://' + host_url + out_url,
+            './': lambda: http_url + '://' + host_url + out_url,
+            '../': lambda: http_url + '://' + host_url + path_url + '/../' + out_url,
+            'http': lambda: out_url,
+            'https': lambda: out_url,
+            'default': lambda: http_url + '://' + host_url + path_url + '/' + out_url
+        }
+        prefix = next((p for p in prefix_map.keys() if out_url.startswith(p)), 'default')
+        put_url = prefix_map[prefix]()
+        return put_url
 
 
 class otherFunction(post_extra):
@@ -149,29 +125,23 @@ if __name__ == "__main__":
     importInfo = post_extra()
     path = post_extra()
 
-    get_list = file.Read('black.txt')
-    get_url = file.Read('urls.txt')
+    get_list = file.read('black.txt')
+    get_url = file.read('urls.txt')
     for eurl in get_url:
         sourceCode = url.source_code(eurl)
 
-        found_phone_info = importInfo.SearchPhone(sourceCode)
-        found_email_info = importInfo.SearchEmail(sourceCode)
-        for afound_email_info in found_email_info:
-            file.write(content=afound_email_info, type='a', filename='import_Info.txt')
-        for afound_phone_info in found_phone_info:
-            file.write(content=afound_phone_info, type='a', filename='import_Info.txt')
+        found_infos = importInfo.Searchinfo(sourceCode)
 
-        found_info = []
-        found_info.extend(found_email_info)
-        found_info.extend(found_phone_info)
+        for afound_phone_info in found_infos:
+            file.write(content=afound_phone_info, mode='a', filename='import_Info.txt')
 
         found_path = []
         found_path.extend(path.SearchPath(sourceCode))
         for apath in found_path:
-            file.write(content=apath, type='w', filename='path.txt')
+            file.write(content=apath, mode='w', filename='path.txt')
 
         found_url = url.extract_URL(sourceCode)
-        blacklist = file.Read(filename='black.txt')
+        blacklist = file.read(filename='black.txt')
 
         userop = input("是否需要将404与500添加到url.txt当中？")
         while True:
@@ -182,7 +152,7 @@ if __name__ == "__main__":
                 if efound_url is None:
                     continue
 
-                checked_url = url.check_Url(efound_url, eurl)
+                checked_url = url.check_url(efound_url, eurl)
                 # out url
                 try:
                     status_coded = url.status_code(checked_url)
@@ -191,23 +161,25 @@ if __name__ == "__main__":
                     continue
                 else:
                     if userop == 'y':
-                        file.write(content=checked_url, type="a", filename="urls.txt")
-                        file.write(content=checked_url + '-----' + str(status_coded), type='a',
+                        file.write(content=checked_url, mode="a", filename="urls.txt")
+                        file.write(content=checked_url + '-----' + str(status_coded), mode='a',
                                    filename='result_urls.txt')
                     else:
                         if status_coded > 500 or status_coded == 404:
                             continue
                         else:
-                            file.write(content=checked_url, type="a", filename="urls.txt")
+                            file.write(content=checked_url, mode="a", filename="urls.txt")
                             if url.title(checked_url) is None:
                                 continue
-                            file.write(content=checked_url + '-----' + str(status_coded) + '-----' + url.title(checked_url), type='a',
-                                       filename='result_urls.txt')
+                            file.write(
+                                content=checked_url + '-----' + str(status_coded) + '-----' + url.title(checked_url),
+                                mode='a',
+                                filename='result_urls.txt')
 
             option = input("已经将爬取到的url放入url.txt与result_url.txt,是否要继续爬取？（您可以自己修改）")
             if option == 'y':
-                file.write(content='', type='w', filename='urls.txt')
-                file.write(content='', type='w', filename='path.txt')
-                found_url.extend(file.Read(filename='urls.txt'))
+                file.write(content='', mode='w', filename='urls.txt')
+                file.write(content='', mode='w', filename='path.txt')
+                found_url.extend(file.read(filename='urls.txt'))
             else:
                 break
