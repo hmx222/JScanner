@@ -44,7 +44,7 @@ class post_extra(FileHandle):
         return response
 
     def SearchPath(self, content):
-        rex = '^(?!.*\.(mp4|flv|avi|mp3|wav|jpg|jpeg|gif|png|bmp|css)$)(\.{0,2}/)?[/a-zA-Z0-9_-]+(/[/a-zA-Z0-9_-]+)*$'
+        rex = '^(?!.*\.(mp4|flv|avi|mp3|wav|jpg|jpeg|gif|png|bmp|ico)$)(\.{0,2}/)?[/\w.-]+(/[/\w.-]+)*(\.\w+)?$'
         response = re.findall(rex, content)
         return response
 
