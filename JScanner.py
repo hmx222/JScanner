@@ -1,10 +1,11 @@
+# encoding=utf8
 import re
 from urllib.parse import urlparse
-
 import requests
 
 requests.packages.urllib3.disable_warnings()
 
+# 定义线程池类
 
 class FileHandle:
     def __init__(self):
@@ -19,6 +20,37 @@ class FileHandle:
         with open(filename, mode, encoding=self.encode) as f:
             f.write('\n' + content)
             return True
+
+    from typing import List
+
+    def deduplication_file(self,input_file: str, output_file: str) -> None:
+        """
+        从输入文件中读取文本数据，去重后写入输出文件中
+
+        Args:
+            input_file: 输入文件路径
+            output_file: 输出文件路径
+
+        Returns:
+            None
+        """
+        # 用set集合存储去重后的文本数据
+        text_set = set()
+
+        # 读取输入文件中的文本数据并去重
+        with open(input_file, 'r', encoding='utf-8') as input_f:
+            for line in input_f:
+                # 去掉文本数据中的空格和换行符
+                line = line.strip()
+
+                # 将非空的文本数据添加到set集合中
+                if line:
+                    text_set.add(line)
+
+        # 将去重后的文本数据写入输出文件中
+        with open(output_file, 'w', encoding='utf-8') as output_f:
+            for text in text_set:
+                output_f.write(text + '\n')
 
 
 class post_extra(FileHandle):
@@ -62,38 +94,33 @@ class urlHandle(post_extra):
         got_title = super().tileScan(response.text)
         return got_title[0] if got_title else None
 
-    def extract_URL(self, JS):
+    def extract_links(self,html):
         pattern_raw = r"""
-    	  (?:"|')                               # Start newline delimiter
-    	  (
-    	    ((?:[a-zA-Z]{1,10}://|//)           # Match a scheme [a-Z]*1-10 or //
-    	    [^"'/]{1,}\.                        # Match a domainname (any character + dot)
-    	    [a-zA-Z]{2,}[^"']{0,})              # The domainextension and/or path
-    	    |
-    	    ((?:/|\.\./|\./)                    # Start with /,../,./
-    	    [^"'><,;| *()(%%$^/\\\[\]]          # Next character can't be...
-    	    [^"'><,;|()]{1,})                   # Rest of the characters can't be
-    	    |
-    	    ([a-zA-Z0-9_\-/]{1,}/               # Relative endpoint with /
-    	    [a-zA-Z0-9_\-/]{1,}                 # Resource name
-    	    \.(?:[a-zA-Z]{1,4}|action)          # Rest + extension (length 1-4 or action)
-    	    (?:[\?|/][^"|']{0,}|))              # ? mark with parameters
-    	    |
-    	    ([a-zA-Z0-9_\-]{1,}                 # filename
-    	    \.(?:php|asp|aspx|jsp|json|
-    	         action|html|js|txt|xml)             # . + extension
-    	    (?:\?[^"|']{0,}|))                  # ? mark with parameters
-    	  )
-    	  (?:"|')                               # End newline delimiter
-    	"""
+              (?:"|')                               # Start newline delimiter
+              (
+                ((?:[a-zA-Z]{1,10}://|//)           # Match a scheme [a-Z]*1-10 or //
+                [^"'/]{1,}\.                        # Match a domainname (any character + dot)
+                [a-zA-Z]{2,}(?!png|css|jpeg|mp4|mp3)[^"']{0,})              # The domainextension and/or path, not ending with png/css/jpeg/mp4/mp3
+                |
+                ((?:/|\.\./|\./)                    # Start with /,../,./
+                [^"'><,;| *()(%%$^/\\\[\]]          # Next character can't be...
+                [^"'><,;|()]{1,})                   # Rest of the characters can't be
+                |
+                ([a-zA-Z0-9_\-/]{1,}/               # Relative endpoint with /
+                [a-zA-Z0-9_\-/]{1,}                 # Resource name
+                \.(?:[a-zA-Z]{1,4}|action)          # Rest + extension (length 1-4 or action)
+                (?:[\?|/][^"|']{0,}|))              # ? mark with parameters
+                |
+                ([a-zA-Z0-9_\-]{1,}                 # filename
+                \.(?:php|asp|aspx|jsp|json|
+                     action|html|js|txt|xml)             # . + extension
+                (?:\?[^"|']{0,}|))                  # ? mark with parameters
+              )
+              (?:"|')                               # End newline delimiter
+            """
         pattern = re.compile(pattern_raw, re.VERBOSE)
-        result = re.finditer(pattern, str(JS))
-        if result == None:
-            return None
-        js_url = []
-        return [match.group().strip('"').strip("'") for match in result
-                if match.group() not in js_url]
-
+        links = pattern.findall(html)
+        return [link[0] for link in links if not link[0].endswith(('.css', '.png', '.jpg', '.mp4'))]
     def check_url(self, out_url: str, get_url: str):
         handled_url = urlparse(get_url)
         http_url = handled_url.scheme
@@ -129,7 +156,6 @@ if __name__ == "__main__":
     get_url = file.read('urls.txt')
     for eurl in get_url:
         sourceCode = url.source_code(eurl)
-
         found_infos = importInfo.Searchinfo(sourceCode)
 
         for afound_phone_info in found_infos:
@@ -140,7 +166,7 @@ if __name__ == "__main__":
         for apath in found_path:
             file.write(content=apath, mode='w', filename='path.txt')
 
-        found_url = url.extract_URL(sourceCode)
+        found_url = url.extract_links(sourceCode)
         blacklist = file.read(filename='black.txt')
 
         userop = input("是否需要将404与500添加到url.txt当中？")
@@ -176,6 +202,8 @@ if __name__ == "__main__":
                                 mode='a',
                                 filename='result_urls.txt')
 
+            file.deduplication_file(input_file='urls.txt', output_file='urls.txt')
+            file.deduplication_file(input_file='result_urls.txt', output_file='result_urls.txt')
             option = input("已经将爬取到的url放入url.txt与result_url.txt,是否要继续爬取？（您可以自己修改）")
             if option == 'y':
                 file.write(content='', mode='w', filename='urls.txt')
