@@ -20,7 +20,7 @@ class FileHandle:
             f.write('\n' + content)
             return True
 
-    from typing import List
+
 
     def deduplication_file(self, input_file: str, output_file: str) -> None:
         text_set = set()
@@ -115,8 +115,9 @@ class urlHandle(post_extra):
         host_url = handled_url.netloc
         path_url = handled_url.path
         prefix_map = {
-            '/': lambda: http_url + ':' + out_url if get_url.startswith(
-                '//') else host_url + '://' + host_url + out_url,
+            '/': lambda: http_url + ':' + out_url if get_url.startswith('//') else
+            (http_url + '://' + host_url + out_url if get_url.endswith('/') else
+             host_url + '://' + host_url + out_url),
             './': lambda: http_url + '://' + host_url + out_url,
             '../': lambda: http_url + '://' + host_url + path_url + '/../' + out_url,
             'http': lambda: out_url,
@@ -149,18 +150,17 @@ if __name__ == "__main__":
             file.write(content=apath, mode='w', filename='path.txt')
 
         found_url = url.extract_links(sourceCode)
-        found_url.append("end")
         blacklist = file.read(filename='black.txt')
-
+        found_url.append("end")
         userop = input("是否需要将404与500添加到url.txt当中？")
         while True:
             for efound_url in found_url:
                 for eblack in blacklist:
                     if eblack in efound_url:
-                        efound_url = None
+                        efound_url = "continue"
                 if efound_url == "end":
                     break
-                if efound_url is None:
+                if efound_url == "continue":
                     continue
 
                 checked_url = url.check_url(efound_url, eurl)
