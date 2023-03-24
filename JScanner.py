@@ -5,7 +5,6 @@ import requests
 
 requests.packages.urllib3.disable_warnings()
 
-# 定义线程池类
 
 class FileHandle:
     def __init__(self):
@@ -23,21 +22,8 @@ class FileHandle:
 
     from typing import List
 
-    def deduplication_file(self,input_file: str, output_file: str) -> None:
-        """
-        从输入文件中读取文本数据，去重后写入输出文件中
-
-        Args:
-            input_file: 输入文件路径
-            output_file: 输出文件路径
-
-        Returns:
-            None
-        """
-        # 用set集合存储去重后的文本数据
+    def deduplication_file(self, input_file: str, output_file: str) -> None:
         text_set = set()
-
-        # 读取输入文件中的文本数据并去重
         with open(input_file, 'r', encoding='utf-8') as input_f:
             for line in input_f:
                 # 去掉文本数据中的空格和换行符
@@ -55,15 +41,16 @@ class FileHandle:
 
 class post_extra(FileHandle):
     phone_regex = r'(?:\d{1,3}\.){3}\d{1,3}|[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*\.[a-zA-Z]{2,4}|[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[012])(?:0[1-9]|[12]\d|3[01])[\dxX]|1[3-9]\d{9}|password'
-    path_regex = r'(?<!\w)(?:(?!\.(?:mp4|flv|avi|mp3|wav|jpg|jpeg|gif|png|bmp|ico|css)$)[./\w-]+)+(\.\w+)?(?!\w)'
+
     title_regex = r'<title>(.*?)</title>'
 
+    def extract_js_paths(self,js_code):
+        pattern = re.compile(r"'(?!.*\.(?:mp3|ogg|wav|avi|mp4|flv|mov|png|jpg|gif|bmp|svg|ico|css))(?:\/\w+)*\/\w+\/'")
+
+        matches = pattern.findall(js_code)
+        return matches
     def Searchinfo(self, content):
         response = re.findall(self.phone_regex, content)
-        return response
-
-    def SearchPath(self, content):
-        response = re.findall(self.path_regex, content, re.IGNORECASE)
         return response
 
     def tileScan(self, content):
@@ -94,7 +81,7 @@ class urlHandle(post_extra):
         got_title = super().tileScan(response.text)
         return got_title[0] if got_title else None
 
-    def extract_links(self,html):
+    def extract_links(self, html):
         pattern_raw = r"""
               (?:"|')                               # Start newline delimiter
               (
@@ -121,6 +108,7 @@ class urlHandle(post_extra):
         pattern = re.compile(pattern_raw, re.VERBOSE)
         links = pattern.findall(html)
         return [link[0] for link in links if not link[0].endswith(('.css', '.png', '.jpg', '.mp4'))]
+
     def check_url(self, out_url: str, get_url: str):
         handled_url = urlparse(get_url)
         http_url = handled_url.scheme
@@ -140,12 +128,6 @@ class urlHandle(post_extra):
         return put_url
 
 
-class otherFunction(post_extra):
-    def list_con(self, listTemp, n):
-        for i in range(0, len(listTemp), n):
-            yield listTemp[i:i + n]
-
-
 if __name__ == "__main__":
     file = FileHandle()
     url = urlHandle()
@@ -162,11 +144,12 @@ if __name__ == "__main__":
             file.write(content=afound_phone_info, mode='a', filename='import_Info.txt')
 
         found_path = []
-        found_path.extend(path.SearchPath(sourceCode))
+        found_path.extend(path.extract_js_paths(sourceCode))
         for apath in found_path:
             file.write(content=apath, mode='w', filename='path.txt')
 
         found_url = url.extract_links(sourceCode)
+        found_url.append("end")
         blacklist = file.read(filename='black.txt')
 
         userop = input("是否需要将404与500添加到url.txt当中？")
@@ -175,6 +158,8 @@ if __name__ == "__main__":
                 for eblack in blacklist:
                     if eblack in efound_url:
                         efound_url = None
+                if efound_url == "end":
+                    break
                 if efound_url is None:
                     continue
 
