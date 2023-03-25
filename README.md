@@ -7,12 +7,9 @@
 
 #### 怎么使用？
 
-0、你需要pip requests模块
-
-​	    cmd下执行
-
-```
-pip install requests
+0、你首先要安装requirements.txt文件当中的依赖性
+```shell
+pip install -r requirements.txt
 ```
 
 1、你需要将黑名单的url关键字放入black.txt
