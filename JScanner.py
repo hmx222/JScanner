@@ -60,7 +60,7 @@ class post_extra(FileHandle):
 
 class urlHandle(post_extra):
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; rv,2.0.1) Gecko/20100101 Firefox/4.0.1',
-               'referer': 'https://www.baidu.com', "Connection": "close"}
+               'referer': 'https://www.baidu.com'}
     timeout = 8
     verify = False
 
