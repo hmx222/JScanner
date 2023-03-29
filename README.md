@@ -16,7 +16,7 @@ pip install -r requirements.txt
 
 2、你需要将url（一个或者多个）放入urls.txt
 
-3、执行
+3、执行（您可以在89行的代码处增加对特定的文件后缀的黑名单只需要  |filetype）
 
 ```python
 python JScanner.py
