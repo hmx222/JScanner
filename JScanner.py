@@ -1,26 +1,21 @@
 # encoding=utf8
-import re
+import re,argparse,requests
 from urllib.parse import urlparse
-import requests
 
 requests.packages.urllib3.disable_warnings()
 
 
 class FileHandle:
-    def __init__(self):
-        self.encode = 'utf-8'
 
     def read(self, filename: str) -> list:
-        with open(filename, 'r', encoding=self.encode) as file:
+        with open(filename, 'r', encoding='utf-8') as file:
             lines = [line.strip().split(" ")[0] for line in file if line.strip() and line.strip()[0] != "#"]
         return lines
 
     def write(self, content: str, mode: str, filename: str) -> bool:
-        with open(filename, mode, encoding=self.encode) as f:
+        with open(filename, mode, encoding='utf-8') as f:
             f.write('\n' + content)
             return True
-
-
 
     def deduplication_file(self, input_file: str, output_file: str) -> None:
         text_set = set()
@@ -28,7 +23,6 @@ class FileHandle:
             for line in input_f:
                 # 去掉文本数据中的空格和换行符
                 line = line.strip()
-
                 # 将非空的文本数据添加到set集合中
                 if line:
                     text_set.add(line)
@@ -40,15 +34,16 @@ class FileHandle:
 
 
 class post_extra(FileHandle):
-    phone_regex = r'(?:\d{1,3}\.){3}\d{1,3}|[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*\.[a-zA-Z]{2,4}|[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[012])(?:0[1-9]|[12]\d|3[01])[\dxX]|1[3-9]\d{9}|password'
+    phone_regex = r'(?:\d{1,3}\.){3}\d{1,3}|[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*\.[a-zA-Z]{2,4}|[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[012])(?:0[1-9]|[12]\d|3[01])[\dxX]|1[3-9]\d{9}'
 
     title_regex = r'<title>(.*?)</title>'
 
-    def extract_js_paths(self,js_code):
+    def extract_js_paths(self, js_code):
         pattern = re.compile(r"'(?!.*\.(?:mp3|ogg|wav|avi|mp4|flv|mov|png|jpg|gif|bmp|svg|ico|css))(?:\/\w+)*\/\w+\/'")
 
         matches = pattern.findall(js_code)
         return matches
+
     def Searchinfo(self, content):
         response = re.findall(self.phone_regex, content)
         return response
@@ -59,25 +54,27 @@ class post_extra(FileHandle):
 
 
 class urlHandle(post_extra):
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; rv,2.0.1) Gecko/20100101 Firefox/4.0.1',
-               'referer': 'https://www.baidu.com'}
     timeout = 8
     verify = False
 
     def get_request(self, url):
-        response = requests.get(url=url, headers=self.headers, timeout=self.timeout, verify=self.verify)
-        return response
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; rv,2.0.1) Gecko/20100101 Firefox/4.0.1',
+                   'referer': 'https://www.baidu.com',
+                   'cookie': args.cookie}
+        response = requests.get(url=url, headers=headers, timeout=self.timeout, verify=self.verify)
+        response_c = response.content.decode("utf-8","ignore")
+        return response,response_c
 
     def status_code(self, url):
-        response = self.get_request(url)
+        response,response_c = self.get_request(url)
         return response.status_code
 
     def source_code(self, url):
-        response = self.get_request(url)
+        response,response_c = self.get_request(url)
         return response.text
 
     def title(self, url):
-        response = self.get_request(url)
+        response,response_c = self.get_request(url)
         got_title = super().tileScan(response.text)
         return got_title[0] if got_title else None
 
@@ -87,7 +84,7 @@ class urlHandle(post_extra):
               (
                 ((?:[a-zA-Z]{1,10}://|//)           # Match a scheme [a-Z]*1-10 or //
                 [^"'/]{1,}\.                        # Match a domainname (any character + dot)
-                [a-zA-Z]{2,}(?!png|css|jpeg|mp4|mp3)[^"']{0,})              # The domainextension and/or path, not ending with png/css/jpeg/mp4/mp3
+                [a-zA-Z]{2,}(?!png|css|jpeg|mp4|mp3|gif|ico)[^"']{0,})              # The domainextension and/or path, not ending with png/css/jpeg/mp4/mp3
                 |
                 ((?:/|\.\./|\./)                    # Start with /,../,./
                 [^"'><,;| *()(%%$^/\\\[\]]          # Next character can't be...
@@ -134,6 +131,10 @@ if __name__ == "__main__":
     url = urlHandle()
     importInfo = post_extra()
     path = post_extra()
+
+    parser = argparse.ArgumentParser(description='please specify a url which carry https/http such as :  https://www.baidu.com')
+    parser.add_argument('--cookie', '-c', help="Input cookie value")
+    args = parser.parse_args()
 
     get_list = file.read('black.txt')
     get_url = file.read('urls.txt')
