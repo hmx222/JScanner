@@ -20,6 +20,7 @@ pip install -r requirements.txt
 
 ```python
 python JScanner.py
+python JScanner.py -c cookie 可以指定cookie
 ```
 
 4、然后你就能在result_urls.txt发现得到的url；在path.txt得到路径信息；在import_info.txt得到敏感信息
