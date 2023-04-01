@@ -1,18 +1,19 @@
-# encoding=utf8
-import re,argparse,requests
+import argparse
+import re
+import requests
 from urllib.parse import urlparse
 
 requests.packages.urllib3.disable_warnings()
 
 
 class FileHandle:
-
     def read(self, filename: str) -> list:
-        with open(filename, 'r', encoding='utf-8') as file:
+        with open(filename, 'r') as file:
             lines = [line.strip().split(" ")[0] for line in file if line.strip() and line.strip()[0] != "#"]
         return lines
 
     def write(self, content: str, mode: str, filename: str) -> bool:
+
         with open(filename, mode, encoding='utf-8') as f:
             f.write('\n' + content)
             return True
@@ -39,44 +40,49 @@ class post_extra(FileHandle):
     title_regex = r'<title>(.*?)</title>'
 
     def extract_js_paths(self, js_code):
-        pattern = re.compile(r"'(?!.*\.(?:mp3|ogg|wav|avi|mp4|flv|mov|png|jpg|gif|bmp|svg|ico|css))(?:\/\w+)*\/\w+\/'")
+        pattern = re.compile(r"(?!.*\.(?:mp3|ogg|wav|avi|mp4|flv|mov|png|jpg|gif|bmp|svg|ico|css))(?:\/\w+)*\/\w+\/")
 
         matches = pattern.findall(js_code)
         return matches
 
-    def Searchinfo(self, content):
+    def searchInfo(self, content):
         response = re.findall(self.phone_regex, content)
         return response
 
-    def tileScan(self, content):
+    def titleScan(self, content):
         response = re.findall(self.title_regex, content)
         return response
 
 
-class urlHandle(post_extra):
-    timeout = 8
-    verify = False
+class UrlHandle(post_extra):
+    def __init__(self, timeout=3, verify=False):
+        self.timeout = timeout
+        self.verify = verify
 
-    def get_request(self, url):
+    def charset(self,url):
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; rv,2.0.1) Gecko/20100101 Firefox/4.0.1',
-                   'referer': 'https://www.baidu.com',
-                   'cookie': args.cookie}
+                   'Referer': 'https:www.google.com',
+                   'Cookie': ''}
+        response = requests.get(url,headers,timeout=3,verify=False)
+        return response.apparent_encoding
+
+    def get_request(self, url, responsed, cookie='', charset="utf-8"):
+        """返回源代码"""
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; rv,2.0.1) Gecko/20100101 Firefox/4.0.1',
+                   'Referer': 'https:www.google.com',
+                   'Cookie': cookie}
         response = requests.get(url=url, headers=headers, timeout=self.timeout, verify=self.verify)
-        response_c = response.content.decode("utf-8","ignore")
-        return response,response_c
+        if responsed == "text":
+            return response.content.decode(charset)
+        elif responsed == "class":
+            return response
+        elif responsed == "scode":
+            return response.status_code
 
-    def status_code(self, url):
-        response,response_c = self.get_request(url)
-        return response.status_code
-
-    def source_code(self, url):
-        response,response_c = self.get_request(url)
-        return response.text
-
-    def title(self, url):
-        response,response_c = self.get_request(url)
-        got_title = super().tileScan(response.text)
-        return got_title[0] if got_title else None
+    def title(self, url, cookie=''):
+        c_response = self.get_request(url, cookie=cookie,responsed="text")
+        got_title = super().titleScan(c_response)
+        return got_title[0] if got_title else 'NONE'
 
     def extract_links(self, html):
         pattern_raw = r"""
@@ -128,27 +134,29 @@ class urlHandle(post_extra):
 
 if __name__ == "__main__":
     file = FileHandle()
-    url = urlHandle()
+    url = UrlHandle()
     importInfo = post_extra()
     path = post_extra()
 
-    parser = argparse.ArgumentParser(description='please specify a url which carry https/http such as :  https://www.baidu.com')
-    parser.add_argument('--cookie', '-c', help="Input cookie value")
+    parser = argparse.ArgumentParser(
+        description='please specify a url which carry https/http such as :  https://www.baidu.com')
+    parser.add_argument('-c', '--cookie', help="Input cookie value")
     args = parser.parse_args()
 
     get_list = file.read('black.txt')
     get_url = file.read('urls.txt')
     for eurl in get_url:
-        sourceCode = url.source_code(eurl)
-        found_infos = importInfo.Searchinfo(sourceCode)
+        charset = url.charset(url=eurl)  # 拿到编码
+        sourceCode = url.get_request(eurl, cookie=args.cookie,charset=charset,responsed="text")
+        # found_infos = importInfo.searchInfo(sourceCode)
 
-        for afound_phone_info in found_infos:
-            file.write(content=afound_phone_info, mode='a', filename='import_Info.txt')
+       # for afound_phone_info in found_infos:
+        #    file.write(content=afound_phone_info, mode='a', filename='import_Info.txt')
 
         found_path = []
         found_path.extend(path.extract_js_paths(sourceCode))
         for apath in found_path:
-            file.write(content=apath, mode='w', filename='path.txt')
+            file.write(content=apath, mode='a', filename='path.txt')
 
         found_url = url.extract_links(sourceCode)
         blacklist = file.read(filename='black.txt')
@@ -167,7 +175,8 @@ if __name__ == "__main__":
                 checked_url = url.check_url(efound_url, eurl)
                 # out url
                 try:
-                    status_coded = url.status_code(checked_url)
+                    charset = url.charset(url=eurl)
+                    status_coded = url.get_request(url=checked_url,cookie=args.cookie,charset=charset,responsed="scode")
                     got_title = url.title(checked_url)
                 except:
                     continue
@@ -181,8 +190,7 @@ if __name__ == "__main__":
                             continue
                         else:
                             file.write(content=checked_url, mode="a", filename="urls.txt")
-                            if url.title(checked_url) is None:
-                                continue
+                            url_title = url.title(checked_url)
                             file.write(
                                 content=checked_url + '-----' + str(status_coded) + '-----' + url.title(checked_url),
                                 mode='a',
