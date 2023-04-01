@@ -148,10 +148,10 @@ if __name__ == "__main__":
     for eurl in get_url:
         charset = url.charset(url=eurl)  # 拿到编码
         sourceCode = url.get_request(eurl, cookie=args.cookie,charset=charset,responsed="text")
-        # found_infos = importInfo.searchInfo(sourceCode)
+        found_infos = importInfo.searchInfo(sourceCode)
 
-       # for afound_phone_info in found_infos:
-        #    file.write(content=afound_phone_info, mode='a', filename='import_Info.txt')
+        for afound_phone_info in found_infos:
+            file.write(content=afound_phone_info, mode='a', filename='import_Info.txt')
 
         found_path = []
         found_path.extend(path.extract_js_paths(sourceCode))
