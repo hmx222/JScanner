@@ -1,34 +1,80 @@
 ### JScanner
 
-#### 此工具能够干什么？
+#### 为什么要写这款工具？
 
-- 能够找到js或者网页源代码当中的路径与url与敏感信息
-- 支持黑名单机制
+在2022年，我测试了无数网站，但是某些网站无论如何都不能搞定它，看了好多别人的实战思路，我总结出来了一点，那些大佬们总是会在前期在js文件当中收集信息，收集到别人在fofa还是鹰图上面探测不到了信息。于是我便想写一款工具来帮助自己在前期更好的探测。
 
-#### 怎么使用？
+#### 这款这款工具能够干什么？
 
-0、你首先要安装requirements.txt文件当中的依赖性
+- 探测网页源代码，发现js文件
+- 探测js文件，发现路径
+- 支持自定义状态码
+- 支持多URL请求
+- 支持目录的递减访问操作（更好的打出目录遍历漏洞）
+- 支持深度查找
+
+#### 这款工具怎么使用？
+
 ```shell
-pip install -r requirements.txt
+python JScanner.py -h
 ```
 
-1、你需要将黑名单的url关键字放入black.txt
+你可以看到具体的帮助文档
 
-2、你需要将url（一个或者多个）放入urls.txt
+##### 默认情况下：
 
-3、执行（您可以在89行的代码处增加对特定的文件后缀的黑名单只需要  |filetype）
-
-```python
-python JScanner.py
-python JScanner.py -c cookie 可以指定cookie
+```shell
+python JScanner.py -u "https://example.com/xxxxx"
 ```
 
-4、然后你就能在result_urls.txt发现得到的url；在path.txt得到路径信息；在import_info.txt得到敏感信息
+##### 设置请求间隔延时
 
-5、推荐在你查看信息后，自行去除部分url
+```shell
+python Jscanner.py -u "https://example.com/xxxxx" -T 2
+```
+
+##### 设置header请求头
+
+```shell
+python Jscanner.py -u "https://example.com/xxxxx" -r "{'cookie':'xxxx','user-Agent':'xxxx','xxxx':'xxxx'}"
+```
+
+##### 设置查找深度
+
+```shell
+python Jscanner.py -u "https://example.com/xxxxx" -H 2
+```
+
+建议：设置的查找深度不要超过2，或者有时候可以不进行设置
+
+##### 设置最大递减
+
+```shell
+python Jscanner.py -u "https://example.com/xxxxx" -l 1
+```
+
+在默认情况下为0，表示全递减；举个栗子：
+
+```
+假如你设置了1，则会将https://example.com/xxx/xxx/xxx，拆分为https://example.com/xxx/xxx，https://example.com/xxx/xxx/xxx；假如设置了0，则会全部进行拆分：https://example.com/xxx/xxx/xxx，https://example.com/xxx/xxx/，https://example.com/xxx/，https://example.com/
+```
+
+##### 设置您不想要的状态码
+
+```shell
+python Jscanner.py -u "https://example.com/xxxxx" -B "(404,502)"
+```
+
+.........
+
+#### 展望
+
+后续会加入：
+
+- 支持将跑出的URL写入Excel表格
+- 多URL的读取
+- 设置代理
 
 
 
-原理图：
-![1679325040015](https://user-images.githubusercontent.com/60973265/226383307-cc5c8d00-c077-4fd6-ad08-adef1dcc65d1.jpg)
-
+写于2023.6.4
