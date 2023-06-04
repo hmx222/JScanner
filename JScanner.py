@@ -1,91 +1,46 @@
-import argparse
-import re
 import requests
+import argparse, urllib3, re,json,os
 from urllib.parse import urlparse
 
-requests.packages.urllib3.disable_warnings()
+urllib3.disable_warnings()
+
+return_List = []
 
 
-class FileHandle:
-    def read(self, filename: str) -> list:
-        with open(filename, 'r') as file:
-            lines = [line.strip().split(" ")[0] for line in file if line.strip() and line.strip()[0] != "#"]
-        return lines
-
-    def write(self, content: str, mode: str, filename: str) -> bool:
-
-        with open(filename, mode, encoding='utf-8') as f:
-            f.write('\n' + content)
-            return True
-
-    def deduplication_file(self, input_file: str, output_file: str) -> None:
-        text_set = set()
-        with open(input_file, 'r', encoding='utf-8') as input_f:
-            for line in input_f:
-                # 去掉文本数据中的空格和换行符
-                line = line.strip()
-                # 将非空的文本数据添加到set集合中
-                if line:
-                    text_set.add(line)
-
-        # 将去重后的文本数据写入输出文件中
-        with open(output_file, 'w', encoding='utf-8') as output_f:
-            for text in text_set:
-                output_f.write(text + '\n')
+def parse_args():
+    """用户输入"""
+    parse = argparse.ArgumentParser(description="hi 你好")
+    parse.add_argument('-u', '--url', required=True, type=str, help="输入带有http/https的网站URL")
+    parse.add_argument('-c', '--cookie', type=str, help="输入cookie，默认为空")
+    parse.add_argument('-r', '--header', type=str,
+                       default='{"user-Agent":"Mozilla/5.0 (Windows NT 6.1; rv:2.0.1) Gecko/20100101 Firefox/4.0.1"}',
+                       help="输入user-agent,格式为\'{\"cookie\":\"xxxx\",\"user-Agent\":\"xxxx\",\"xxxx\":\"xxxx\"}\'")
+    parse.add_argument('-l', '--level', type=int, default=0, help="输入最大递减数，默认为0表示全递减")
+    parse.add_argument('-b', '--black-list', help="将黑名单关键词放入black.txt，将会读取它")
+    parse.add_argument('-t', '--height', type=int,default=0,help="查找深度")
+    parse.add_argument('-w','--wait',type=int,help="网站请求超时等待时间")
+    parse.add_argument('-s','--black-status',type=tuple,default=(404,502,500),help="输入您不想要获得的状态码")
+    return parse.parse_args()
 
 
-class post_extra(FileHandle):
-    phone_regex = r'(?:\d{1,3}\.){3}\d{1,3}|[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*\.[a-zA-Z]{2,4}|[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[012])(?:0[1-9]|[12]\d|3[01])[\dxX]|1[3-9]\d{9}'
-
-    title_regex = r'<title>(.*?)</title>'
-
-    def extract_js_paths(self, js_code):
-        pattern = re.compile(r"(?!.*\.(?:mp3|ogg|wav|avi|mp4|flv|mov|png|jpg|gif|bmp|svg|ico|css))(?:\/\w+)*\/\w+\/")
-
-        matches = pattern.findall(js_code)
-        return matches
-
-    def searchInfo(self, content):
-        response = re.findall(self.phone_regex, content)
-        return response
-
-    def titleScan(self, content):
-        response = re.findall(self.title_regex, content)
-        return response
+def urlGet(url, header=None, waitTime=3):
+    """请求"""
+    if header is not None:
+        header = json.loads(header)
+    try:
+        result = requests.get(url=url, headers=header,verify=False,timeout=waitTime)
+    except:
+        print("")
+    else:
+        return result
 
 
-class UrlHandle(post_extra):
-    def __init__(self, timeout=3, verify=False):
-        self.timeout = timeout
-        self.verify = verify
+def analysis(content, get_url):
+    """数据分析，其中data_list需要从urlGet函数当中获取，get_Url也需要从当中获取"""
+    pattern = re.compile(r"(?!.*\.(?:mp3|ogg|wav|avi|mp4|flv|mov|png|jpg|gif|bmp|svg|ico|css))(?:\/\w+)*\/[\w\.]+")
+    matches = pattern.findall(content)
 
-    def charset(self,url):
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; rv,2.0.1) Gecko/20100101 Firefox/4.0.1',
-                   'Referer': 'https:www.google.com',
-                   'Cookie': ''}
-        response = requests.get(url,headers,timeout=3,verify=False)
-        return response.apparent_encoding
-
-    def get_request(self, url, responsed, cookie='', charset="utf-8"):
-        """返回源代码"""
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; rv,2.0.1) Gecko/20100101 Firefox/4.0.1',
-                   'Referer': 'https:www.google.com',
-                   'Cookie': cookie}
-        response = requests.get(url=url, headers=headers, timeout=self.timeout, verify=self.verify)
-        if responsed == "text":
-            return response.content.decode(charset)
-        elif responsed == "class":
-            return response
-        elif responsed == "scode":
-            return response.status_code
-
-    def title(self, url, cookie=''):
-        c_response = self.get_request(url, cookie=cookie,responsed="text")
-        got_title = super().titleScan(c_response)
-        return got_title[0] if got_title else 'NONE'
-
-    def extract_links(self, html):
-        pattern_raw = r"""
+    pattern_raw = r"""
               (?:"|')                               # Start newline delimiter
               (
                 ((?:[a-zA-Z]{1,10}://|//)           # Match a scheme [a-Z]*1-10 or //
@@ -108,100 +63,138 @@ class UrlHandle(post_extra):
               )
               (?:"|')                               # End newline delimiter
             """
-        pattern = re.compile(pattern_raw, re.VERBOSE)
-        links = pattern.findall(html)
-        return [link[0] for link in links if not link[0].endswith(('.css', '.png', '.jpg', '.mp4'))]
+    pattern = re.compile(pattern_raw, re.VERBOSE)
+    links = pattern.findall(content)
+    relist = [link[0] for link in links if not link[0].endswith(('.css', '.png', '.jpg', '.mp4'))]
 
-    def check_url(self, out_url: str, get_url: str):
+    allList = relist + matches
+    allList = list(set(allList))
+# TODO增加去重
+
+    for mainUrl in allList:
         handled_url = urlparse(get_url)
-        http_url = handled_url.scheme
-        host_url = handled_url.netloc
-        path_url = handled_url.path
-        prefix_map = {
-            '/': lambda: http_url + ':' + out_url if get_url.startswith('//') else
-            (http_url + '://' + host_url + out_url if get_url.endswith('/') else
-             host_url + '://' + host_url + out_url),
-            './': lambda: http_url + '://' + host_url + out_url,
-            '../': lambda: http_url + '://' + host_url + path_url + '/../' + out_url,
-            'http': lambda: out_url,
-            'https': lambda: out_url,
-            'default': lambda: http_url + '://' + host_url + path_url + '/' + out_url
-        }
-        prefix = next((p for p in prefix_map.keys() if out_url.startswith(p)), 'default')
-        put_url = prefix_map[prefix]()
-        return put_url
+        httpUrl = handled_url.scheme
+        hostUrl = handled_url.netloc
+        pathUrl = handled_url.path
+        if mainUrl.startswith('/'):
+            # 处理以斜杠开头的相对路径
+            if mainUrl.startswith('//'):
+                temUrl = httpUrl + ':' +mainUrl
+                urlObject = urlparse(temUrl)
+                if '.' in urlObject.netloc:
+                    put_url = httpUrl + ':'+mainUrl
+            else: # 此时也就是 / 开头的
+                mainUrl = '/' + mainUrl
+                temUrl = httpUrl + ':' + mainUrl
+                urlObject = urlparse(temUrl)
+                if '.' in urlObject.netloc:
+                    put_url = httpUrl + ':' +mainUrl
+                else:
+                    mainUrl = mainUrl[1:]
+                    put_url = httpUrl + '://' + hostUrl + mainUrl
+        elif mainUrl.startswith('./'):
+            # 处理以./开头的相对路径
+            put_url = httpUrl + '://' + hostUrl + mainUrl[2:]
+        elif mainUrl.startswith('../'):
+            # 处理以../开头的相对路径
+            put_url = httpUrl + '://' + hostUrl + os.path.normpath(os.path.join(pathUrl, mainUrl))
+        elif mainUrl.startswith('http') or mainUrl.startswith('https'):
+            # 处理以http或https开头的绝对路径
+            put_url = mainUrl
+        else:
+            # 处理其他情况
+            put_url = httpUrl + '://' + mainUrl if not handled_url.netloc else mainUrl
+        return_List.append(put_url)
+
+    return list(set(return_List))
+def read(filename: str) -> list:
+    """文件读取"""
+    with open(filename, 'r') as file:
+        lines = [line.strip().split(" ")[0] for line in file if line.strip() and line.strip()[0] != "#"]
+    return lines
+
+def height(url,header,waitTime,high):
+    if type(url) == str:
+        url = [url]
+        urlFin = []
+    for num in range(high):
+        for i in url:
+            demoResult = urlGet(i,header=header,waitTime=waitTime)
+            urlResult = analysis(demoResult.text,i)
+            urlFin.extend(urlResult)
+        url = []
+        url.extend(urlResult)
+    return urlFin
+
+def title_Find(url_Object):
+    """标题读取,需要先拿到网页是什么类型的编码，注意此时输出传参的是一个来自请求模块的对象"""
+    charset = url_Object.apparent_encoding
+    url_Object.content.decode(charset)
+    title_regex = r'<title.*?>(.*?)</title>'
+    response = re.findall(title_regex, url_Object.text)
+    return "".join(response)
+
+def decline(url, num):
+    if url[:8] == "https://":
+        url = url.replace("https://","",1)
+        url_list = []
+        if num > 1:
+            for i in range(num):
+                url_list.append("https://"+url)
+                url = '/'.join(url.split('/')[:-1])
+            url_list.append(url+'/')
+            url_list.reverse()
+        else:
+            parts = url.split('/')
+            for i in range(2, len(parts) + 1):
+                url_list.append("https://"+'/'.join(parts[:i]))
+        return url_list
+    else:
+        url = url.replace("http://","",1)
+        url_list = []
+        if num > 1:
+            for i in range(num):
+                url_list.append("http://"+url)
+                url = '/'.join(url.split('/')[:-1])
+            url_list.append(url+'/')
+            url_list.reverse()
+        else:
+            parts = url.split('/')
+            for i in range(2, len(parts) + 1):
+                url_list.append('/'.join(parts[:i]))
+        return url_list
+
+def dangerAssets(title):
+    """对危险资产的探测"""
+    if title == "Index of /":
+        return "WARING!!!"
+    else:
+        return ""
+
 
 
 if __name__ == "__main__":
-    file = FileHandle()
-    url = UrlHandle()
-    importInfo = post_extra()
-    path = post_extra()
+    args = parse_args()
+    resultObject = urlGet(url=args.url,header=args.header,waitTime=args.wait)
+    urlList = analysis(resultObject.text,args.url)
+    urlAll = []
+    if args.height > 0:
+        urlList = urlList + height(urlList,header=args.header,waitTime=args.wait,high=args.heigth)
+    for url in urlList:
+        urlDemo = decline(url,args.level)
+        urlAll.extend(urlDemo)
+    urlAll = list(set(urlAll))
+    for url in urlAll:
+        try:
+            result = urlGet(url,header=args.header,waitTime=args.wait)
+            title = title_Find(result)
+        except:
+            print(url + "----------" +"ERROR")
+        else:
+            print(url+"----------"+dangerAssets(title)+title)
 
-    parser = argparse.ArgumentParser(
-        description='please specify a url which carry https/http such as :  https://www.baidu.com')
-    parser.add_argument('-c', '--cookie', help="Input cookie value")
-    args = parser.parse_args()
 
-    get_list = file.read('black.txt')
-    get_url = file.read('urls.txt')
-    for eurl in get_url:
-        charset = url.charset(url=eurl)  # 拿到编码
-        sourceCode = url.get_request(eurl, cookie=args.cookie,charset=charset,responsed="text")
-        found_infos = importInfo.searchInfo(sourceCode)
 
-        for afound_phone_info in found_infos:
-            file.write(content=afound_phone_info, mode='a', filename='import_Info.txt')
 
-        found_path = []
-        found_path.extend(path.extract_js_paths(sourceCode))
-        for apath in found_path:
-            file.write(content=apath, mode='a', filename='path.txt')
 
-        found_url = url.extract_links(sourceCode)
-        blacklist = file.read(filename='black.txt')
-        found_url.append("end")
-        userop = input("是否需要将404与500添加到url.txt当中？")
-        while True:
-            for efound_url in found_url:
-                for eblack in blacklist:
-                    if eblack in efound_url:
-                        efound_url = "continue"
-                if efound_url == "end":
-                    break
-                if efound_url == "continue":
-                    continue
 
-                checked_url = url.check_url(efound_url, eurl)
-                # out url
-                try:
-                    charset = url.charset(url=eurl)
-                    status_coded = url.get_request(url=checked_url,cookie=args.cookie,charset=charset,responsed="scode")
-                    got_title = url.title(checked_url)
-                except:
-                    continue
-                else:
-                    if userop == 'y':
-                        file.write(content=checked_url, mode="a", filename="urls.txt")
-                        file.write(content=checked_url + '-----' + str(status_coded), mode='a',
-                                   filename='result_urls.txt')
-                    else:
-                        if status_coded > 500 or status_coded == 404:
-                            continue
-                        else:
-                            file.write(content=checked_url, mode="a", filename="urls.txt")
-                            url_title = url.title(checked_url)
-                            file.write(
-                                content=checked_url + '-----' + str(status_coded) + '-----' + url.title(checked_url),
-                                mode='a',
-                                filename='result_urls.txt')
-
-            file.deduplication_file(input_file='urls.txt', output_file='urls.txt')
-            file.deduplication_file(input_file='result_urls.txt', output_file='result_urls.txt')
-            option = input("已经将爬取到的url放入url.txt与result_url.txt,是否要继续爬取？（您可以自己修改）")
-            if option == 'y':
-                file.write(content='', mode='w', filename='urls.txt')
-                file.write(content='', mode='w', filename='path.txt')
-                found_url.extend(file.read(filename='urls.txt'))
-            else:
-                break
