@@ -1,5 +1,5 @@
 import requests
-import argparse, urllib3, re,json,os
+import argparse, urllib3, re, ast, os, time
 from urllib.parse import urlparse
 
 urllib3.disable_warnings()
@@ -11,24 +11,22 @@ def parse_args():
     """用户输入"""
     parse = argparse.ArgumentParser(description="hi 你好")
     parse.add_argument('-u', '--url', required=True, type=str, help="输入带有http/https的网站URL")
-    parse.add_argument('-c', '--cookie', type=str, help="输入cookie，默认为空")
-    parse.add_argument('-r', '--header', type=str,
-                       default='{"user-Agent":"Mozilla/5.0 (Windows NT 6.1; rv:2.0.1) Gecko/20100101 Firefox/4.0.1"}',
-                       help="输入user-agent,格式为\'{\"cookie\":\"xxxx\",\"user-Agent\":\"xxxx\",\"xxxx\":\"xxxx\"}\'")
+    parse.add_argument('-r', '--header', type=ast.literal_eval,
+                       default="{'user-Agent':'Mozilla/5.0 (Windows NT 6.1; rv:2.0.1) Gecko/20100101 Firefox/4.0.1'}",
+                       help="输入user-agent,格式为\"{\'cookie\':\'xxxx\',\'user-Agent\':\'xxxx\',\'xxxx\':\'xxxx\'}\"")
     parse.add_argument('-l', '--level', type=int, default=0, help="输入最大递减数，默认为0表示全递减")
-    parse.add_argument('-b', '--black-list', help="将黑名单关键词放入black.txt，将会读取它")
-    parse.add_argument('-t', '--height', type=int,default=0,help="查找深度")
-    parse.add_argument('-w','--wait',type=int,help="网站请求超时等待时间")
-    parse.add_argument('-s','--black-status',type=tuple,default=(404,502,500),help="输入您不想要获得的状态码")
+    parse.add_argument('-H', '--height', type=int, default=0, help="查找深度")
+    parse.add_argument('-w', '--wait', type=int, help="网站请求超时等待时间")
+    parse.add_argument('-T', '--time', type=int, default=0,help="请求间隔延时")
+    parse.add_argument('-B', '--blackStatus', type=ast.literal_eval, default=(404, 502, 500),
+                       help="输入您不想要获得的状态码,格式：-s \"(xxx,xxx)\"")
     return parse.parse_args()
 
 
-def urlGet(url, header=None, waitTime=3):
+def urlGet(url, header, waitTime=3):
     """请求"""
-    if header is not None:
-        header = json.loads(header)
     try:
-        result = requests.get(url=url, headers=header,verify=False,timeout=waitTime)
+        result = requests.get(url=url, headers=header, verify=False, timeout=waitTime)
     except:
         pass
     else:
@@ -69,7 +67,6 @@ def analysis(content, get_url):
 
     allList = relist + matches
     allList = list(set(allList))
-# TODO增加去重
 
     for mainUrl in allList:
         handled_url = urlparse(get_url)
@@ -79,16 +76,16 @@ def analysis(content, get_url):
         if mainUrl.startswith('/'):
             # 处理以斜杠开头的相对路径
             if mainUrl.startswith('//'):
-                temUrl = httpUrl + ':' +mainUrl
+                temUrl = httpUrl + ':' + mainUrl
                 urlObject = urlparse(temUrl)
                 if '.' in urlObject.netloc:
-                    put_url = httpUrl + ':'+mainUrl
-            else: # 此时也就是 / 开头的
+                    put_url = httpUrl + ':' + mainUrl
+            else:  # 此时也就是 / 开头的
                 mainUrl = '/' + mainUrl
                 temUrl = httpUrl + ':' + mainUrl
                 urlObject = urlparse(temUrl)
                 if '.' in urlObject.netloc:
-                    put_url = httpUrl + ':' +mainUrl
+                    put_url = httpUrl + ':' + mainUrl
                 else:
                     mainUrl = mainUrl[1:]
                     put_url = httpUrl + '://' + hostUrl + mainUrl
@@ -107,53 +104,61 @@ def analysis(content, get_url):
         return_List.append(put_url)
 
     return list(set(return_List))
+
+
 def read(filename: str) -> list:
     """文件读取"""
     with open(filename, 'r') as file:
         lines = [line.strip().split(" ")[0] for line in file if line.strip() and line.strip()[0] != "#"]
     return lines
 
-def height(url,header,waitTime,high):
-    if type(url) == str:
-        url = [url]
-        urlFin = []
+
+def status(url_Object):
+    """变更为对状态码的提取"""
+    try:
+        status_code = url_Object.status_code
+    except:
+        return "NULL"
+    else:
+        return status_code
+
+
+def heightScan(url, header, waitTime, high):
+    urlFin = []
     for num in range(high):
         for i in url:
-            demoResult = urlGet(i,header=header,waitTime=waitTime)
-            urlResult = analysis(demoResult.text,i)
-            urlFin.extend(urlResult)
+            demoResult = urlGet(i, header=header, waitTime=waitTime)
+            if status(demoResult) == 200:
+                urlResult = analysis(demoResult.text, i)
+                urlFin.extend(urlResult)
         url = []
         url.extend(urlResult)
     return urlFin
 
-def status(url_Object):
-    """变更为对状态码的提取"""
-    status_code = url_Object.status_code
-    return status_code
 
 def decline(url, num):
     if url[:8] == "https://":
-        url = url.replace("https://","",1)
+        url = url.replace("https://", "", 1)
         url_list = []
         if num > 1:
             for i in range(num):
-                url_list.append("https://"+url)
+                url_list.append("https://" + url)
                 url = '/'.join(url.split('/')[:-1])
-            url_list.append(url+'/')
+            url_list.append(url + '/')
             url_list.reverse()
         else:
             parts = url.split('/')
             for i in range(2, len(parts) + 1):
-                url_list.append("https://"+'/'.join(parts[:i]))
+                url_list.append("https://" + '/'.join(parts[:i]))
         return url_list
     else:
-        url = url.replace("http://","",1)
+        url = url.replace("http://", "", 1)
         url_list = []
         if num > 1:
             for i in range(num):
-                url_list.append("http://"+url)
+                url_list.append("http://" + url)
                 url = '/'.join(url.split('/')[:-1])
-            url_list.append(url+'/')
+            url_list.append(url + '/')
             url_list.reverse()
         else:
             parts = url.split('/')
@@ -162,32 +167,26 @@ def decline(url, num):
         return url_list
 
 
-
 if __name__ == "__main__":
     args = parse_args()
-    resultObject = urlGet(url=args.url,header=args.header,waitTime=args.wait)
-    urlList = analysis(resultObject.text,args.url)
+    resultObject = urlGet(url=args.url, header=args.header, waitTime=args.wait)
+    urlList = analysis(resultObject.text, args.url)
     urlAll = []
     if args.height > 0:
-        urlList = urlList + height(urlList,header=args.header,waitTime=args.wait,high=args.heigth)
+        urlList = urlList + heightScan(urlList, header=args.header, waitTime=args.wait, high=args.height)
     for url in urlList:
-        urlDemo = decline(url,args.level)
+        urlDemo = decline(url, args.level)
         urlAll.extend(urlDemo)
     urlAll = list(set(urlAll))
     for url in urlAll:
         try:
-            result = urlGet(url,header=args.header,waitTime=args.wait)
+            time.sleep(args.time)
+            result = urlGet(url, header=args.header, waitTime=args.wait)
             code = status(result)
         except:
-            print(url , "----------" ,"ERROR")
+            print(url, "----------", "ERROR")
         else:
-            if code in args.black-status:
+            if code in args.blackStatus:
                 pass
             else:
-                print(url,"----------",code)
-
-
-
-
-
-
+                print(url, "----------", code)
