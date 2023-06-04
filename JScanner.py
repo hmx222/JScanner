@@ -30,7 +30,7 @@ def urlGet(url, header=None, waitTime=3):
     try:
         result = requests.get(url=url, headers=header,verify=False,timeout=waitTime)
     except:
-        print("")
+        pass
     else:
         return result
 
@@ -126,13 +126,10 @@ def height(url,header,waitTime,high):
         url.extend(urlResult)
     return urlFin
 
-def title_Find(url_Object):
-    """标题读取,需要先拿到网页是什么类型的编码，注意此时输出传参的是一个来自请求模块的对象"""
-    charset = url_Object.apparent_encoding
-    url_Object.content.decode(charset)
-    title_regex = r'<title.*?>(.*?)</title>'
-    response = re.findall(title_regex, url_Object.text)
-    return "".join(response)
+def status(url_Object):
+    """变更为对状态码的提取"""
+    status_code = url_Object.status_code
+    return status_code
 
 def decline(url, num):
     if url[:8] == "https://":
@@ -164,13 +161,6 @@ def decline(url, num):
                 url_list.append('/'.join(parts[:i]))
         return url_list
 
-def dangerAssets(title):
-    """对危险资产的探测"""
-    if title == "Index of /":
-        return "WARING!!!"
-    else:
-        return ""
-
 
 
 if __name__ == "__main__":
@@ -187,11 +177,14 @@ if __name__ == "__main__":
     for url in urlAll:
         try:
             result = urlGet(url,header=args.header,waitTime=args.wait)
-            title = title_Find(result)
+            code = status(result)
         except:
-            print(url + "----------" +"ERROR")
+            print(url , "----------" ,"ERROR")
         else:
-            print(url+"----------"+dangerAssets(title)+title)
+            if code in args.black-status:
+                pass
+            else:
+                print(url,"----------",code)
 
 
 
