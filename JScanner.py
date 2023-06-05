@@ -135,7 +135,7 @@ def heightScan(url, header, waitTime, high):
                 urlResult = analysis(demoResult.text, i)
                 urlFin.extend(urlResult)
         url = []
-        url.extend(urlResult)
+        url.extend(urlFin)
     return urlFin
 
 
@@ -191,7 +191,8 @@ if __name__ == "__main__":
     urlList = analysis(resultObject.text, args.url)
     urlAll = []
     if args.height > 0:
-        urlList = urlList + heightScan(urlList, header=args.header, waitTime=args.wait, high=args.height)
+        urlList2 = heightScan(urlList, header=args.header, waitTime=args.wait, high=args.height)
+        urlList = urlList + list(filter(None, urlList2))
     for url in urlList:
         urlDemo = decline(url, args.level)
         urlAll.extend(urlDemo)
