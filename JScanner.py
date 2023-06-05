@@ -1,10 +1,12 @@
 import requests
-import argparse, urllib3, re, ast, os, time
+import argparse, urllib3, re, ast, os, time, random
 from urllib.parse import urlparse
+import xlsxwriter as xw
 
 urllib3.disable_warnings()
 
 return_List = []
+excelList = []
 
 
 def parse_args():
@@ -17,9 +19,10 @@ def parse_args():
     parse.add_argument('-l', '--level', type=int, default=0, help="输入最大递减数，默认为0表示全递减")
     parse.add_argument('-H', '--height', type=int, default=0, help="查找深度")
     parse.add_argument('-w', '--wait', type=int, help="网站请求超时等待时间")
-    parse.add_argument('-T', '--time', type=int, default=0,help="请求间隔延时")
+    parse.add_argument('-T', '--time', type=int, default=0, help="请求间隔延时")
     parse.add_argument('-B', '--blackStatus', type=ast.literal_eval, default=(404, 502, 500),
                        help="输入您不想要获得的状态码,格式：-s \"(xxx,xxx)\"")
+    parse.add_argument('-o', '--out', type=str, help="输出为Excel表格")
     return parse.parse_args()
 
 
@@ -167,6 +170,21 @@ def decline(url, num):
         return url_list
 
 
+def writeExcel(dataList):
+    fileName = int(time.mktime(time.localtime())) + random.randint(1000, 9999)
+    workbook = xw.Workbook(str(fileName) + ".xlsx")  # 创建工作簿
+    worksheet1 = workbook.add_worksheet("sheet1")  # 创建子表
+    worksheet1.activate()  # 激活表
+    title = ['URL', '状态码']  # 设置表头
+    worksheet1.write_row('A1', title)  # 从A1单元格开始写入表头
+    worksheet1.set_column(0, 0, 50)  # 设置第一列的宽度为 50
+    for i in range(len(dataList)):
+        writeUrl, statusCode = dataList[i]
+        worksheet1.write(i + 1, 0, writeUrl)
+        worksheet1.write(i + 1, 1, statusCode)
+    workbook.close()
+
+
 if __name__ == "__main__":
     args = parse_args()
     resultObject = urlGet(url=args.url, header=args.header, waitTime=args.wait)
@@ -184,9 +202,17 @@ if __name__ == "__main__":
             result = urlGet(url, header=args.header, waitTime=args.wait)
             code = status(result)
         except:
-            print(url, "----------", "ERROR")
+            if args.out:
+                excelList.append((url,"ERROR"))
+            else:
+                print(url, "----------", "ERROR")
         else:
             if code in args.blackStatus:
                 pass
             else:
-                print(url, "----------", code)
+                if args.out:
+                    excelList.append((url, code))
+                else:
+                    print(url, "----------", code)
+    if args.out:
+        writeExcel(excelList)
