@@ -5,7 +5,7 @@ import xlsxwriter as xw
 
 urllib3.disable_warnings()
 
-return_List = []
+return_url_list = []
 excelList = []
 
 
@@ -18,7 +18,7 @@ def parse_args():
                        help="输入user-agent,格式为\"{\'cookie\':\'xxxx\',\'user-Agent\':\'xxxx\',\'xxxx\':\'xxxx\'}\"")
     parse.add_argument('-l', '--level', type=int, default=0, help="输入最大递减数，默认为0表示全递减")
     parse.add_argument('-H', '--height', type=int, default=0, help="查找深度")
-    parse.add_argument('-w', '--wait', type=int,default=3, help="网站请求超时等待时间")
+    parse.add_argument('-w', '--wait', type=int, default=3, help="网站请求超时等待时间")
     parse.add_argument('-T', '--time', type=int, default=0, help="请求间隔延时")
     parse.add_argument('-B', '--blackStatus', type=ast.literal_eval, default=(404, 502, 500),
                        help="输入您不想要获得的状态码,格式：-s \"(xxx,xxx)\"")
@@ -26,20 +26,20 @@ def parse_args():
     return parse.parse_args()
 
 
-def urlGet(url, header, waitTime=3):
+def url_request(url, header, wait_time=3):
     """请求"""
     try:
-        result = requests.get(url=url, headers=header, verify=False, timeout=waitTime)
+        request_url_object = requests.get(url=url, headers=header, verify=False, timeout=wait_time)
     except:
         pass
     else:
-        return result
+        return request_url_object
 
 
-def analysis(content, get_url):
+def analysis(source, url):
     """数据分析，其中data_list需要从urlGet函数当中获取，get_Url也需要从当中获取"""
     pattern = re.compile(r"(?!.*\.(?:mp3|ogg|wav|avi|mp4|flv|mov|png|jpg|gif|bmp|svg|ico|css))(?:\/\w+)*\/[\w\.]+")
-    matches = pattern.findall(content)
+    matches = pattern.findall(source)
 
     pattern_raw = r"""
               (?:"|')                               # Start newline delimiter
@@ -65,56 +65,55 @@ def analysis(content, get_url):
               (?:"|')                               # End newline delimiter
             """
     pattern = re.compile(pattern_raw, re.VERBOSE)
-    links = pattern.findall(content)
+    links = pattern.findall(source)
     relist = [link[0] for link in links if not link[0].endswith(('.css', '.png', '.jpg', '.mp4'))]
 
-    allList = relist + matches
-    allList = list(set(allList))
-    # allList = ['/jQuery.migrateMute', '/Login/Login/selectParttime', '/Public/resource/download', '/Public/js/jquery-1.12.1.min.js', '/JavaScript', '/Login/Login/getMobileCode', '/Login/Login/index', '/1999/xhtml', '/Public/js/placeholder.js', '/div', '/Public/js/jquery.base64.js', '/Public/js/jquery-ui-1.10.4.min.js', '/label', '/Login/Login/editPwd?username=', '/Public/js/unis.js', '/登录设备不符', '/www.unissoft.com', 'http://www.unissoft.com/', '/Public/js/Mine/encryptPwd.js', '/title', '/t', '/Login/Login/loginDetail?', '/W3C', '/button', '/Login/login/selfverify', '/Login/Login/showDetail?', '/span', '/Login/Login/showDetail', '/Login/Login/selectParttime?id=', '/javascript', '/Public/plugin/artDialog/iframeTools.source.js', '/alert', '/Mine/Portal/portal', '/Public/js/jquery-migrate-1.2.1.js', '/Public/resource/download/《电子档案管理系统》使用说明书.docx', '/DTD', '/EN', '/html', '/Login/Login/editPwd_must', '/head', '/form', '/Public/plugin/artDialog/jquery.artDialog.source.js?skin=blue', '/a', '/favicon.ico', '/www.w3.org', 'http://www.w3.org/1999/xhtml', '/p', '/Login/Login/loginCode', '/Login/Login/authentication', '/Login/Login/mailToResetpwd', '/Login/Login/login', 'http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd', '/param', '/加密处理', '/Public/plugin/artDialog/jquery.artDialog.source.js', '/body', '/Public/js/jquery.md5.js', '/css', '/Login/Login/authentication?username=', '/Login/Login/editPwd', '/Public/js/Mine/clearMacAndIp.js', '/Public/js/jquery', '/style', '/TR/xhtml1/DTD/xhtml1', '/Login/Login/loginDetail', '/ajax', '/Public/js/superslide.2.1.js', '/script']
-    for mainUrl in allList:
-        handled_url = urlparse(get_url)
-        httpUrl = handled_url.scheme
-        hostUrl = handled_url.netloc
-        pathUrl = handled_url.path
-        if mainUrl.startswith('/'):
+    all_list = relist + matches
+    all_list = list(set(all_list))  # 此时汇聚的是二者的信息，进行了第一次去重
+    for main_url in all_list:
+        handled_url = urlparse(url)
+        Protocol = handled_url.scheme  # http、https协议
+        Domain = handled_url.netloc  # 域名
+        Path = handled_url.path  # 路径
+        if main_url.startswith('/'):
             # 处理以斜杠开头的相对路径
-            if mainUrl.startswith('//'):
-                temUrl = httpUrl + ':' + mainUrl
+            if main_url.startswith('//'):
+                temp_url = Protocol + ':' + main_url
                 try:
-                    urlObject = urlparse(temUrl)
+                    parse_return_object = urlparse(temp_url)
                 except:
                     continue
                 else:
-                    if '.' in urlObject.netloc:
-                        put_url = httpUrl + ':' + mainUrl
+                    if '.' in parse_return_object.netloc:
+                        return_url = Protocol + ':' + main_url
             else:  # 此时也就是 / 开头的
-                mainUrl = '/' + mainUrl
-                temUrl = httpUrl + ':' + mainUrl
+                main_url = '/' + main_url
+                temp_url = Protocol + ':' + main_url
                 try:
-                    urlObject = urlparse(temUrl)
+                    parse_return_object = urlparse(temp_url)
                 except:
                     continue
                 else:
-                    if '.' in urlObject.netloc:
-                        put_url = httpUrl + ':' + mainUrl
+                    if '.' in parse_return_object.netloc:
+                        return_url = Protocol + ':' + main_url
                     else:
-                        mainUrl = mainUrl[1:]
-                        put_url = httpUrl + '://' + hostUrl + mainUrl
-        elif mainUrl.startswith('./'):
+                        main_url = main_url[1:]
+                        return_url = Protocol + '://' + Domain + main_url
+        elif main_url.startswith('./'):
             # 处理以./开头的相对路径
-            put_url = httpUrl + '://' + hostUrl + mainUrl[2:]
-        elif mainUrl.startswith('../'):
+            return_url = Protocol + '://' + Domain + main_url[2:]
+        elif main_url.startswith('../'):
             # 处理以../开头的相对路径
-            put_url = httpUrl + '://' + hostUrl + os.path.normpath(os.path.join(pathUrl, mainUrl))
-        elif mainUrl.startswith('http') or mainUrl.startswith('https'):
+            return_url = Protocol + '://' + Domain + os.path.normpath(os.path.join(Path, main_url))
+        elif main_url.startswith('http') or main_url.startswith('https'):
             # 处理以http或https开头的绝对路径
-            put_url = mainUrl
+            return_url = main_url
         else:
             # 处理其他情况
-            put_url = httpUrl + '://' + mainUrl if not handled_url.netloc else mainUrl
-        return_List.append(put_url)
+            return_url = Protocol + '://' + main_url if not handled_url.netloc else main_url
+        return_url_list.append(return_url)
 
-    return list(set(return_List))
+    return return_url_list
 
 
 def read(filename: str) -> list:
@@ -124,38 +123,37 @@ def read(filename: str) -> list:
     return lines
 
 
-def status(url_Object):
+def status(Object):
     """变更为对状态码的提取"""
     try:
-        status_code = url_Object.status_code
+        status_code = Object.status_code
     except:
         return "NULL"
     else:
         return status_code
 
 
-def returnLength(url_Object):
+def returnLength(Object):
     """返回值长度"""
     try:
-        length = url_Object.text
+        return_length = Object.text
     except:
         return "NULL"
     else:
-        return len(length)
+        return len(return_length)
 
 
-
-def heightScan(url, header, waitTime, high):
-    urlFin = []
+def heightScan(url, header, wait_time, high):
+    return_murl_list = []
     for num in range(high):
         for i in url:
-            demoResult = urlGet(i, header=header, waitTime=waitTime)
-            if status(demoResult) == 200:
-                urlResult = analysis(demoResult.text, i)
-                urlFin.extend(urlResult)
+            Object = url_request(i, header=header, wait_time=wait_time)
+            if status(Object) == 200:
+                urlResult = analysis(Object.text, i)
+                return_murl_list.extend(urlResult)
         url = []
-        url.extend(urlFin)
-    return urlFin
+        url.extend(return_murl_list)
+    return return_murl_list
 
 
 def decline(url, num):
@@ -185,7 +183,7 @@ def decline(url, num):
         else:
             parts = url.split('/')
             for i in range(2, len(parts) + 1):
-                url_list.append("http://"+'/'.join(parts[:i]))
+                url_list.append("http://" + '/'.join(parts[:i]))
         return url_list
 
 
@@ -207,25 +205,25 @@ def writeExcel(dataList):
 
 if __name__ == "__main__":
     args = parse_args()
-    resultObject = urlGet(url=args.url, header=args.header, waitTime=args.wait)
-    urlList = analysis(resultObject.text, args.url)
-    urlAll = []
+    Object = url_request(url=args.url, header=args.header, wait_time=args.wait)
+    first_url_list = analysis(Object.text, args.url)  # 此时会获取得到第一次探测url得到的信息
+    all_url_list = []
     if args.height > 0:
-        urlList2 = heightScan(urlList, header=args.header, waitTime=args.wait, high=args.height)
-        urlList = list(set(urlList + urlList2))
-    for url in urlList:
+        urlList2 = heightScan(first_url_list, header=args.header, wait_time=args.wait, high=args.height)
+        first_url_list = list(set(first_url_list + urlList2)) #第二次去重，主要是为了为下面的代码减轻工作量
+    for url in first_url_list:
         urlDemo = decline(url, args.level)
-        urlAll.extend(urlDemo)
-    urlAll = list(set(urlAll))
-    for url in urlAll:
+        all_url_list.extend(urlDemo)
+    all_url_list = list(set(all_url_list))  # 此时会进行第三次去重，去重的是总url，主要是去除部分可能一级目录相同的问题
+    for url in all_url_list:
         try:
             time.sleep(args.time)
-            result = urlGet(url, header=args.header, waitTime=args.wait)
+            result = url_request(url, header=args.header, wait_time=args.wait)
             code = status(result)
             outLength = returnLength(result)
         except:
             if args.out:
-                excelList.append((url,"ERROR"))
+                excelList.append((url, "ERROR"))
             else:
                 print(url, "----------", "ERROR")
         else:
@@ -233,8 +231,8 @@ if __name__ == "__main__":
                 pass
             else:
                 if args.out:
-                    excelList.append((url, code,outLength))
+                    excelList.append((url, code, outLength))
                 else:
-                    print(url, "----------", code,outLength)
+                    print(url, "----------", code, outLength)
     if args.out:
         writeExcel(excelList)
