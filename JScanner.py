@@ -18,7 +18,7 @@ def parse_args():
                        help="输入user-agent,格式为\"{\'cookie\':\'xxxx\',\'user-Agent\':\'xxxx\',\'xxxx\':\'xxxx\'}\"")
     parse.add_argument('-l', '--level', type=int, default=0, help="输入最大递减数，默认为0表示全递减")
     parse.add_argument('-H', '--height', type=int, default=0, help="查找深度")
-    parse.add_argument('-w', '--wait', type=int, help="网站请求超时等待时间")
+    parse.add_argument('-w', '--wait', type=int,default=3, help="网站请求超时等待时间")
     parse.add_argument('-T', '--time', type=int, default=0, help="请求间隔延时")
     parse.add_argument('-B', '--blackStatus', type=ast.literal_eval, default=(404, 502, 500),
                        help="输入您不想要获得的状态码,格式：-s \"(xxx,xxx)\"")
@@ -70,7 +70,7 @@ def analysis(content, get_url):
 
     allList = relist + matches
     allList = list(set(allList))
-
+    # allList = ['/jQuery.migrateMute', '/Login/Login/selectParttime', '/Public/resource/download', '/Public/js/jquery-1.12.1.min.js', '/JavaScript', '/Login/Login/getMobileCode', '/Login/Login/index', '/1999/xhtml', '/Public/js/placeholder.js', '/div', '/Public/js/jquery.base64.js', '/Public/js/jquery-ui-1.10.4.min.js', '/label', '/Login/Login/editPwd?username=', '/Public/js/unis.js', '/登录设备不符', '/www.unissoft.com', 'http://www.unissoft.com/', '/Public/js/Mine/encryptPwd.js', '/title', '/t', '/Login/Login/loginDetail?', '/W3C', '/button', '/Login/login/selfverify', '/Login/Login/showDetail?', '/span', '/Login/Login/showDetail', '/Login/Login/selectParttime?id=', '/javascript', '/Public/plugin/artDialog/iframeTools.source.js', '/alert', '/Mine/Portal/portal', '/Public/js/jquery-migrate-1.2.1.js', '/Public/resource/download/《电子档案管理系统》使用说明书.docx', '/DTD', '/EN', '/html', '/Login/Login/editPwd_must', '/head', '/form', '/Public/plugin/artDialog/jquery.artDialog.source.js?skin=blue', '/a', '/favicon.ico', '/www.w3.org', 'http://www.w3.org/1999/xhtml', '/p', '/Login/Login/loginCode', '/Login/Login/authentication', '/Login/Login/mailToResetpwd', '/Login/Login/login', 'http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd', '/param', '/加密处理', '/Public/plugin/artDialog/jquery.artDialog.source.js', '/body', '/Public/js/jquery.md5.js', '/css', '/Login/Login/authentication?username=', '/Login/Login/editPwd', '/Public/js/Mine/clearMacAndIp.js', '/Public/js/jquery', '/style', '/TR/xhtml1/DTD/xhtml1', '/Login/Login/loginDetail', '/ajax', '/Public/js/superslide.2.1.js', '/script']
     for mainUrl in allList:
         handled_url = urlparse(get_url)
         httpUrl = handled_url.scheme
@@ -80,18 +80,26 @@ def analysis(content, get_url):
             # 处理以斜杠开头的相对路径
             if mainUrl.startswith('//'):
                 temUrl = httpUrl + ':' + mainUrl
-                urlObject = urlparse(temUrl)
-                if '.' in urlObject.netloc:
-                    put_url = httpUrl + ':' + mainUrl
+                try:
+                    urlObject = urlparse(temUrl)
+                except:
+                    continue
+                else:
+                    if '.' in urlObject.netloc:
+                        put_url = httpUrl + ':' + mainUrl
             else:  # 此时也就是 / 开头的
                 mainUrl = '/' + mainUrl
                 temUrl = httpUrl + ':' + mainUrl
-                urlObject = urlparse(temUrl)
-                if '.' in urlObject.netloc:
-                    put_url = httpUrl + ':' + mainUrl
+                try:
+                    urlObject = urlparse(temUrl)
+                except:
+                    continue
                 else:
-                    mainUrl = mainUrl[1:]
-                    put_url = httpUrl + '://' + hostUrl + mainUrl
+                    if '.' in urlObject.netloc:
+                        put_url = httpUrl + ':' + mainUrl
+                    else:
+                        mainUrl = mainUrl[1:]
+                        put_url = httpUrl + '://' + hostUrl + mainUrl
         elif mainUrl.startswith('./'):
             # 处理以./开头的相对路径
             put_url = httpUrl + '://' + hostUrl + mainUrl[2:]
@@ -124,6 +132,17 @@ def status(url_Object):
         return "NULL"
     else:
         return status_code
+
+
+def returnLength(url_Object):
+    """返回值长度"""
+    try:
+        length = url_Object.text
+    except:
+        return "NULL"
+    else:
+        return len(length)
+
 
 
 def heightScan(url, header, waitTime, high):
@@ -166,7 +185,7 @@ def decline(url, num):
         else:
             parts = url.split('/')
             for i in range(2, len(parts) + 1):
-                url_list.append('/'.join(parts[:i]))
+                url_list.append("http://"+'/'.join(parts[:i]))
         return url_list
 
 
@@ -175,13 +194,14 @@ def writeExcel(dataList):
     workbook = xw.Workbook(str(fileName) + ".xlsx")  # 创建工作簿
     worksheet1 = workbook.add_worksheet("sheet1")  # 创建子表
     worksheet1.activate()  # 激活表
-    title = ['URL', '状态码']  # 设置表头
+    title = ['URL', '状态码', '长度']  # 设置表头
     worksheet1.write_row('A1', title)  # 从A1单元格开始写入表头
     worksheet1.set_column(0, 0, 50)  # 设置第一列的宽度为 50
     for i in range(len(dataList)):
-        writeUrl, statusCode = dataList[i]
+        writeUrl, statusCode, contentLength = dataList[i]
         worksheet1.write(i + 1, 0, writeUrl)
         worksheet1.write(i + 1, 1, statusCode)
+        worksheet1.write(i + 1, 2, contentLength)  # 写入URL返回值长度
     workbook.close()
 
 
@@ -192,7 +212,7 @@ if __name__ == "__main__":
     urlAll = []
     if args.height > 0:
         urlList2 = heightScan(urlList, header=args.header, waitTime=args.wait, high=args.height)
-        urlList = urlList + list(filter(None, urlList2))
+        urlList = list(set(urlList + urlList2))
     for url in urlList:
         urlDemo = decline(url, args.level)
         urlAll.extend(urlDemo)
@@ -202,6 +222,7 @@ if __name__ == "__main__":
             time.sleep(args.time)
             result = urlGet(url, header=args.header, waitTime=args.wait)
             code = status(result)
+            outLength = returnLength(result)
         except:
             if args.out:
                 excelList.append((url,"ERROR"))
@@ -212,8 +233,8 @@ if __name__ == "__main__":
                 pass
             else:
                 if args.out:
-                    excelList.append((url, code))
+                    excelList.append((url, code,outLength))
                 else:
-                    print(url, "----------", code)
+                    print(url, "----------", code,outLength)
     if args.out:
         writeExcel(excelList)
