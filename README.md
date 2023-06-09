@@ -66,6 +66,10 @@ python Jscanner.py -u "https://example.com/xxxxx" -l 1
 ```shell
 python Jscanner.py -u "https://example.com/xxxxx" -B "(404,502)"
 ```
+##### 输出为Excel表格的形式（推荐）
+```shell
+python Jscanner.py -u "https://example.com/xxxxx" -o excel
+```
 
 .........
 
