@@ -14,6 +14,7 @@
 - 支持多URL请求
 - 支持目录的递减访问操作（更好的打出目录遍历漏洞）
 - 支持深度查找
+- 支持对标题与返回值长度的输出
 
 #### 这款工具怎么使用？
 
@@ -65,6 +66,10 @@ python Jscanner.py -u "https://example.com/xxxxx" -l 1
 
 ```shell
 python Jscanner.py -u "https://example.com/xxxxx" -B "(404,502)"
+```
+##### 输出为Excel表格的形式（推荐）
+```shell
+python Jscanner.py -u "https://example.com/xxxxx" -o excel
 ```
 
 .........
