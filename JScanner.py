@@ -2,6 +2,7 @@ import requests
 import argparse, urllib3, re, ast, os, time, random
 from urllib.parse import urlparse
 import xlsxwriter as xw
+from bs4 import BeautifulSoup
 
 urllib3.disable_warnings()
 
@@ -19,6 +20,7 @@ def parse_args():
     parse.add_argument('-l', '--level', type=int, default=0, help="输入最大递减数，默认为0表示全递减")
     parse.add_argument('-H', '--height', type=int, default=0, help="查找深度")
     parse.add_argument('-w', '--wait', type=int, default=3, help="网站请求超时等待时间")
+    parse.add_argument('-a', '--appoint', type=str, help="读取指定文件")
     parse.add_argument('-T', '--time', type=int, default=0, help="请求间隔延时")
     parse.add_argument('-B', '--blackStatus', type=ast.literal_eval, default=(404, 502, 500),
                        help="输入您不想要获得的状态码,格式：-s \"(xxx,xxx)\"")
@@ -187,19 +189,47 @@ def decline(url, num):
         return url_list
 
 
+def get_title(Object):
+    # 使用 BeautifulSoup 解析 HTML
+    soup = BeautifulSoup(Object.content, 'html.parser')
+    # 获取网页标题
+    try:
+        title = soup.title.string
+    # 返回网页标题
+    except:
+        return "NULL"
+    else:
+        return title
+
+
 def writeExcel(dataList):
+    # 生成文件名（当前时间戳 + 随机数）
     fileName = int(time.mktime(time.localtime())) + random.randint(1000, 9999)
-    workbook = xw.Workbook(str(fileName) + ".xlsx")  # 创建工作簿
-    worksheet1 = workbook.add_worksheet("sheet1")  # 创建子表
-    worksheet1.activate()  # 激活表
-    title = ['URL', '状态码', '长度']  # 设置表头
-    worksheet1.write_row('A1', title)  # 从A1单元格开始写入表头
-    worksheet1.set_column(0, 0, 50)  # 设置第一列的宽度为 50
+    # 创建工作簿
+    workbook = xw.Workbook(str(fileName) + ".xlsx")
+    # 创建子表
+    worksheet1 = workbook.add_worksheet("sheet1")
+    # 激活表
+    worksheet1.activate()
+    # 设置表头
+    sheet_header = ['URL', '状态码', '长度', '标题']
+    # 从A1单元格开始写入表头
+    worksheet1.write_row('A1', sheet_header)
+    # 设置第一列的宽度为 50
+    worksheet1.set_column(0, 0, 50)
+    # 遍历数据列表
     for i in range(len(dataList)):
-        writeUrl, statusCode, contentLength = dataList[i]
-        worksheet1.write(i + 1, 0, writeUrl)
-        worksheet1.write(i + 1, 1, statusCode)
-        worksheet1.write(i + 1, 2, contentLength)  # 写入URL返回值长度
+        # 获取当前数据的 URL、状态码、内容长度和标题
+        try:
+            writeUrl, statusCode, contentLength, url_title = dataList[i]
+        except ValueError:  # 假如不足四个元素就直接忽略
+            pass
+        else:  # 在表格中写入 URL、状态码、内容长度和标题
+            worksheet1.write(i + 1, 0, writeUrl)
+            worksheet1.write(i + 1, 1, statusCode)
+            worksheet1.write(i + 1, 2, contentLength)
+            worksheet1.write(i + 1, 3, url_title)
+    # 关闭工作簿
     workbook.close()
 
 
@@ -208,19 +238,20 @@ if __name__ == "__main__":
     Object = url_request(url=args.url, header=args.header, wait_time=args.wait)
     first_url_list = analysis(Object.text, args.url)  # 此时会获取得到第一次探测url得到的信息
     all_url_list = []
-    if args.height > 0:
+    if args.height > 0:  # 假如设置了深度查找就步入
         urlList2 = heightScan(first_url_list, header=args.header, wait_time=args.wait, high=args.height)
-        first_url_list = list(set(first_url_list + urlList2)) #第二次去重，主要是为了为下面的代码减轻工作量
+        first_url_list = list(set(first_url_list + urlList2))  # 第二次去重，主要是为了为下面的代码减轻工作量
     for url in first_url_list:
         urlDemo = decline(url, args.level)
         all_url_list.extend(urlDemo)
     all_url_list = list(set(all_url_list))  # 此时会进行第三次去重，去重的是总url，主要是去除部分可能一级目录相同的问题
     for url in all_url_list:
         try:
-            time.sleep(args.time)
+            time.sleep(args.time)  # 时间间隔
             result = url_request(url, header=args.header, wait_time=args.wait)
-            code = status(result)
-            outLength = returnLength(result)
+            code = status(result)  # 状态码
+            outLength = returnLength(result)  # 返回长度
+            title = get_title(result)  # 获得标题
         except:
             if args.out:
                 excelList.append((url, "ERROR"))
@@ -231,8 +262,8 @@ if __name__ == "__main__":
                 pass
             else:
                 if args.out:
-                    excelList.append((url, code, outLength))
+                    excelList.append((url, code, outLength, title))  # 将所有的数据进行存储，然后写入Excel
                 else:
-                    print(url, "----------", code, outLength)
+                    print(url, "----------", code, "---------", outLength, "----------", title)
     if args.out:
         writeExcel(excelList)
