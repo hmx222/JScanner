@@ -1,8 +1,9 @@
 import requests
-import argparse, urllib3, re, ast, os, time, random
+import argparse, urllib3, re,warnings, ast, os, time, random
 from urllib.parse import urlparse
 import xlsxwriter as xw
 from bs4 import BeautifulSoup
+warnings.filterwarnings("ignore")
 
 urllib3.disable_warnings()
 
@@ -28,6 +29,13 @@ def parse_args():
     return parse.parse_args()
 
 
+def read(filename: str) -> list:
+    """文件读取"""
+    with open(filename, 'r') as file:
+        lines = [line.strip().split(" ")[0] for line in file if line.strip() and line.strip()[0] != "#"]
+    return lines
+
+
 def url_request(url, header, wait_time=3):
     """请求"""
     try:
@@ -38,7 +46,7 @@ def url_request(url, header, wait_time=3):
         return request_url_object
 
 
-def analysis(source, url):
+def analysis(source, url,black_list):
     """数据分析，其中data_list需要从urlGet函数当中获取，get_Url也需要从当中获取"""
 
     pattern_raw = r"""
@@ -92,16 +100,14 @@ def analysis(source, url):
         else:
             # 处理其他情况
             return_url = Protocol + '://' + Domain + '/' + main_url
+        for black_url in black_list:
+            if black_url is None:
+                break
+            if black_url in return_url:
+                continue
         return_url_list.append(return_url)
 
     return return_url_list
-
-
-def read(filename: str) -> list:
-    """文件读取"""
-    with open(filename, 'r') as file:
-        lines = [line.strip().split(" ")[0] for line in file if line.strip() and line.strip()[0] != "#"]
-    return lines
 
 
 def status(Object):
@@ -124,13 +130,13 @@ def returnLength(Object):
         return len(return_length)
 
 
-def heightScan(url, header, wait_time, high):
+def heightScan(url, header, wait_time, high,black_list):
     return_murl_list = []
     for num in range(high):
         for i in url:
             Object = url_request(i, header=header, wait_time=wait_time)
             if status(Object) == 200:
-                urlResult = analysis(Object.text, i)
+                urlResult = analysis(Object.text, i,black_list)
                 return_murl_list.extend(urlResult)
         url = []
         url.extend(return_murl_list)
@@ -138,6 +144,7 @@ def heightScan(url, header, wait_time, high):
 
 
 def decline(url, num):
+    """负责逐级递减URL路径"""
     if url[:8] == "https://":
         url = url.replace("https://", "", 1)
         url_list = []
@@ -180,6 +187,7 @@ def get_title(Object):
     else:
         return title
 
+
 def writeExcel(dataList):
     # 生成文件名（当前时间戳 + 随机数）
     fileName = int(time.mktime(time.localtime())) + random.randint(1000, 9999)
@@ -201,7 +209,7 @@ def writeExcel(dataList):
         try:
             writeUrl, statusCode, contentLength, url_title = dataList[i]
         except ValueError:  # 假如不足四个元素就直接忽略
-            pass
+            continue
         else:  # 在表格中写入 URL、状态码、内容长度和标题
             worksheet1.write(i + 1, 0, writeUrl)
             worksheet1.write(i + 1, 1, statusCode)
@@ -213,11 +221,12 @@ def writeExcel(dataList):
 
 if __name__ == "__main__":
     args = parse_args()
+    black_list = read('black_url.txt')
     Object = url_request(url=args.url, header=args.header, wait_time=args.wait)
-    first_url_list = analysis(Object.text, args.url)  # 此时会获取得到第一次探测url得到的信息
+    first_url_list = analysis(Object.text, args.url,black_list)  # 此时会获取得到第一次探测url得到的信息
     all_url_list = []
     if args.height > 0:  # 假如设置了深度查找就步入
-        urlList2 = heightScan(first_url_list, header=args.header, wait_time=args.wait, high=args.height)
+        urlList2 = heightScan(first_url_list, header=args.header, wait_time=args.wait, high=args.height,black_list=black_list)
         first_url_list = list(set(first_url_list + urlList2))  # 第二次去重，主要是为了为下面的代码减轻工作量
     for url in first_url_list:
         urlDemo = decline(url, args.level)
