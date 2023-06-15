@@ -40,8 +40,6 @@ def url_request(url, header, wait_time=3):
 
 def analysis(source, url):
     """数据分析，其中data_list需要从urlGet函数当中获取，get_Url也需要从当中获取"""
-    pattern = re.compile(r"(?!.*\.(?:mp3|ogg|wav|avi|mp4|flv|mov|png|jpg|gif|bmp|svg|ico|css))(?:\/\w+)*\/[\w\.]+")
-    matches = pattern.findall(source)
 
     pattern_raw = r"""
               (?:"|')                               # Start newline delimiter
@@ -70,8 +68,7 @@ def analysis(source, url):
     links = pattern.findall(source)
     relist = [link[0] for link in links if not link[0].endswith(('.css', '.png', '.jpg', '.mp4'))]
 
-    all_list = relist + matches
-    all_list = list(set(all_list))  # 此时汇聚的是二者的信息，进行了第一次去重
+    all_list = list(set(relist))
     for main_url in all_list:
         handled_url = urlparse(url)
         Protocol = handled_url.scheme  # http、https协议
@@ -80,27 +77,9 @@ def analysis(source, url):
         if main_url.startswith('/'):
             # 处理以斜杠开头的相对路径
             if main_url.startswith('//'):
-                temp_url = Protocol + ':' + main_url
-                try:
-                    parse_return_object = urlparse(temp_url)
-                except:
-                    continue
-                else:
-                    if '.' in parse_return_object.netloc:
-                        return_url = Protocol + ':' + main_url
+                return_url = Protocol + ':' + main_url
             else:  # 此时也就是 / 开头的
-                main_url = '/' + main_url
-                temp_url = Protocol + ':' + main_url
-                try:
-                    parse_return_object = urlparse(temp_url)
-                except:
-                    continue
-                else:
-                    if '.' in parse_return_object.netloc:
-                        return_url = Protocol + ':' + main_url
-                    else:
-                        main_url = main_url[1:]
-                        return_url = Protocol + '://' + Domain + main_url
+                return_url = Protocol + '://' + Domain + main_url
         elif main_url.startswith('./'):
             # 处理以./开头的相对路径
             return_url = Protocol + '://' + Domain + main_url[2:]
@@ -112,7 +91,7 @@ def analysis(source, url):
             return_url = main_url
         else:
             # 处理其他情况
-            return_url = Protocol + '://' + main_url if not handled_url.netloc else main_url
+            return_url = Protocol + '://' + Domain + '/' + main_url
         return_url_list.append(return_url)
 
     return return_url_list
@@ -200,7 +179,6 @@ def get_title(Object):
         return "NULL"
     else:
         return title
-
 
 def writeExcel(dataList):
     # 生成文件名（当前时间戳 + 随机数）

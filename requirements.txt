@@ -1,3 +1,6 @@
-requests==2.31.0
+requests~=2.27.1
 urllib3==1.26.13
-xlsxWriter==3.1.2
+xlsxwriter==3.1.2
+
+bs4~=0.0.1
+beautifulsoup4~=4.11.1
