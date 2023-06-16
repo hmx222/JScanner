@@ -103,10 +103,10 @@ def analysis(source, url):
             # 处理其他情况
             return_url = Protocol + '://' + Domain + '/' + main_url
 
-            extracted1 = tldextract.extract(url) # 解析url获取子域名并且判断是否与上面源url的子域名相等。
-            main_domain1 = extracted1.domain + '.' + extracted1.suffix
-            if main_domain == main_domain1:
-                return_url_list.append(return_url)
+        extracted1 = tldextract.extract(url) # 解析url获取子域名并且判断是否与上面源url的子域名相等。
+        main_domain1 = extracted1.domain + '.' + extracted1.suffix
+        if main_domain == main_domain1:
+            return_url_list.append(return_url)
     return return_url_list
 
 
@@ -131,6 +131,7 @@ def returnLength(Object):
 
 
 def heightScan(url, header, wait_time, high):
+    """深度查找"""
     return_murl_list = []
     for num in range(high):
         for i in url:
@@ -177,7 +178,7 @@ def decline(url, num):
 
 def get_title(Object):
     # 使用 BeautifulSoup 解析 HTML
-    soup = BeautifulSoup(Object.content, 'html.parser')
+    soup = BeautifulSoup(Object.content, 'html.parser',from_encoding="iso-8859-1")
     # 获取网页标题
     try:
         title = soup.title.string
