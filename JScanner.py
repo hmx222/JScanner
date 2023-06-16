@@ -1,10 +1,11 @@
 import requests
-import argparse, urllib3, re,warnings, ast, os, time, random
+import argparse, urllib3, re, ast, os, time, random,warnings,tldextract
 from urllib.parse import urlparse
 import xlsxwriter as xw
 from bs4 import BeautifulSoup
 warnings.filterwarnings("ignore")
 
+# TODO 使用点的分割来解决。
 urllib3.disable_warnings()
 
 return_url_list = []
@@ -46,9 +47,10 @@ def url_request(url, header, wait_time=3):
         return request_url_object
 
 
-def analysis(source, url,black_list):
+def analysis(source, url):
     """数据分析，其中data_list需要从urlGet函数当中获取，get_Url也需要从当中获取"""
-
+    extracted = tldextract.extract(url) # 判断子域名
+    main_domain = extracted.domain + '.' + extracted.suffix
     pattern_raw = r"""
               (?:"|')                               # Start newline delimiter
               (
@@ -100,13 +102,11 @@ def analysis(source, url,black_list):
         else:
             # 处理其他情况
             return_url = Protocol + '://' + Domain + '/' + main_url
-        for black_url in black_list:
-            if black_url is None:
-                break
-            if black_url in return_url:
-                continue
-        return_url_list.append(return_url)
 
+            extracted1 = tldextract.extract(url) # 解析url获取子域名并且判断是否与上面源url的子域名相等。
+            main_domain1 = extracted1.domain + '.' + extracted1.suffix
+            if main_domain == main_domain1:
+                return_url_list.append(return_url)
     return return_url_list
 
 
@@ -130,13 +130,13 @@ def returnLength(Object):
         return len(return_length)
 
 
-def heightScan(url, header, wait_time, high,black_list):
+def heightScan(url, header, wait_time, high):
     return_murl_list = []
     for num in range(high):
         for i in url:
             Object = url_request(i, header=header, wait_time=wait_time)
             if status(Object) == 200:
-                urlResult = analysis(Object.text, i,black_list)
+                urlResult = analysis(Object.text, i)
                 return_murl_list.extend(urlResult)
         url = []
         url.extend(return_murl_list)
@@ -221,12 +221,11 @@ def writeExcel(dataList):
 
 if __name__ == "__main__":
     args = parse_args()
-    black_list = read('black_url.txt')
     Object = url_request(url=args.url, header=args.header, wait_time=args.wait)
-    first_url_list = analysis(Object.text, args.url,black_list)  # 此时会获取得到第一次探测url得到的信息
+    first_url_list = analysis(Object.text, args.url)  # 此时会获取得到第一次探测url得到的信息
     all_url_list = []
     if args.height > 0:  # 假如设置了深度查找就步入
-        urlList2 = heightScan(first_url_list, header=args.header, wait_time=args.wait, high=args.height,black_list=black_list)
+        urlList2 = heightScan(first_url_list, header=args.header, wait_time=args.wait, high=args.height)
         first_url_list = list(set(first_url_list + urlList2))  # 第二次去重，主要是为了为下面的代码减轻工作量
     for url in first_url_list:
         urlDemo = decline(url, args.level)
