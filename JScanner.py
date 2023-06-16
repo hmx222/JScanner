@@ -5,7 +5,7 @@ import xlsxwriter as xw
 from bs4 import BeautifulSoup
 warnings.filterwarnings("ignore")
 
-# TODO 使用点的分割来解决。
+
 urllib3.disable_warnings()
 
 return_url_list = []
