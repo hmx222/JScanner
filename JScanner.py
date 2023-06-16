@@ -1,5 +1,5 @@
 import requests
-import argparse, urllib3, re, ast, os, time, random,warnings,tldextract
+import argparse, urllib3, re, ast, os, time, random,warnings,tldextract,chardet
 from urllib.parse import urlparse
 import xlsxwriter as xw
 from bs4 import BeautifulSoup
@@ -178,7 +178,14 @@ def decline(url, num):
 
 def get_title(Object):
     # 使用 BeautifulSoup 解析 HTML
-    soup = BeautifulSoup(Object.content, 'html.parser',from_encoding="iso-8859-1")
+    html = Object.content
+
+    # 处理编码问题
+    encoding = chardet.detect(html)['encoding']
+    html = html.decode(encoding)
+
+    # 解析 HTML 内容并获取网站标题
+    soup = BeautifulSoup(html, 'html.parser')
     # 获取网页标题
     try:
         title = soup.title.string
