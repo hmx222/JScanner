@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 
 urllib3.disable_warnings()
 
-return_url_list = []
+
 excelList = []
 
 
@@ -48,6 +48,7 @@ def url_request(url, header, wait_time=3):
 
 
 def analysis(source, url):
+    return_url_list = []
     """数据分析，其中data_list需要从urlGet函数当中获取，get_Url也需要从当中获取"""
     extracted = tldextract.extract(url) # 判断子域名
     main_domain = extracted.domain + '.' + extracted.suffix
@@ -103,7 +104,7 @@ def analysis(source, url):
             # 处理其他情况
             return_url = Protocol + '://' + Domain + '/' + main_url
 
-        extracted1 = tldextract.extract(url) # 解析url获取子域名并且判断是否与上面源url的子域名相等。
+        extracted1 = tldextract.extract(return_url) # 解析url获取子域名并且判断是否与上面源url的子域名相等。
         main_domain1 = extracted1.domain + '.' + extracted1.suffix
         if main_domain == main_domain1:
             return_url_list.append(return_url)
@@ -130,17 +131,17 @@ def returnLength(Object):
         return len(return_length)
 
 
-def heightScan(url, header, wait_time, high):
+def heightScan(get_url, header, wait_time, high):
     """深度查找"""
     return_murl_list = []
     for num in range(high):
-        for i in url:
+        for i in get_url:
             Object = url_request(i, header=header, wait_time=wait_time)
             if status(Object) == 200:
                 urlResult = analysis(Object.text, i)
                 return_murl_list.extend(urlResult)
-        url = []
-        url.extend(return_murl_list)
+        get_url = []
+        get_url.extend(return_murl_list)
     return return_murl_list
 
 
