@@ -251,7 +251,7 @@ if __name__ == "__main__":
             if args.out:
                 excelList.append((url, "ERROR"))
             else:
-                print(url, "----------", "ERROR")
+                print(url, "----------", "\033[31mERROR\033[0m")
         else:
             if code in args.blackStatus:
                 pass
@@ -259,6 +259,6 @@ if __name__ == "__main__":
                 if args.out:
                     excelList.append((url, code, outLength, title))  # 将所有的数据进行存储，然后写入Excel
                 else:
-                    print(url, "----------", code, "---------", outLength, "----------", title)
+                    print("\033[34m",url,"\033[0m", "----------", code, "---------", "\033[33m",outLength,"\033[0m", "----------", "\033[32m",title,"\033[0m")
     if args.out:
         writeExcel(excelList)
