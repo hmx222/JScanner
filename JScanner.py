@@ -2,6 +2,7 @@ import requests
 import argparse, urllib3, re, ast, os, time, random,warnings,tldextract,chardet
 from urllib.parse import urlparse
 import xlsxwriter as xw
+import pandas as pd
 from bs4 import BeautifulSoup
 warnings.filterwarnings("ignore")
 
@@ -23,10 +24,11 @@ def parse_args():
     parse.add_argument('-H', '--height', type=int, default=0, help="查找深度")
     parse.add_argument('-w', '--wait', type=int, default=3, help="网站请求超时等待时间")
     parse.add_argument('-a', '--appoint', type=str, help="读取指定文件")
-    parse.add_argument('-T', '--time', type=int, default=0, help="请求间隔延时")
+    parse.add_argument('-T', '--time', type=float, default=0, help="请求间隔延时")
     parse.add_argument('-B', '--blackStatus', type=ast.literal_eval, default=(404, 502, 500),
                        help="输入您不想要获得的状态码,格式：-s \"(xxx,xxx)\"")
     parse.add_argument('-o', '--out', type=str, help="输出为Excel表格")
+    parse.add_argument('-d','--redup',type=str,help="需要配合-o来进行输出，有标题，状态码，返回值长度三者可以选择，选中后会对其进行去重操作，默认会对URL进行去重，不可以多选。")
     return parse.parse_args()
 
 
@@ -207,7 +209,7 @@ def writeExcel(dataList):
     # 激活表
     worksheet1.activate()
     # 设置表头
-    sheet_header = ['URL', '状态码', '长度', '标题']
+    sheet_header = ['URL', '状态码', '返回值长度', '标题']
     # 从A1单元格开始写入表头
     worksheet1.write_row('A1', sheet_header)
     # 设置第一列的宽度为 50
@@ -226,6 +228,20 @@ def writeExcel(dataList):
             worksheet1.write(i + 1, 3, url_title)
     # 关闭工作簿
     workbook.close()
+
+    return fileName
+
+def remove_duplicates(filename, column_name):
+    # 读取Excel文件
+    data = pd.read_excel(filename)
+
+    unique_data = data.drop_duplicates(subset=column_name)
+    fileName = int(time.mktime(time.localtime())) + random.randint(1000, 9999)
+
+    # 将去重后的数据写入新的Excel文件
+    unique_data.to_excel(fileName, index=False)
+    # 删除源表格
+    os.remove(filename)
 
 
 if __name__ == "__main__":
@@ -258,7 +274,10 @@ if __name__ == "__main__":
             else:
                 if args.out:
                     excelList.append((url, code, outLength, title))  # 将所有的数据进行存储，然后写入Excel
+
                 else:
                     print("\033[34m",url,"\033[0m", "----------", code, "---------", "\033[33m",outLength,"\033[0m", "----------", "\033[32m",title,"\033[0m")
     if args.out:
-        writeExcel(excelList)
+        filename = writeExcel(excelList)
+        if args.redup:
+            remove_duplicates(filename,args.redup)
