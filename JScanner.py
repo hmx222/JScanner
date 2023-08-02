@@ -10,7 +10,7 @@ warnings.filterwarnings("ignore")
 urllib3.disable_warnings()
 
 
-excelList = []
+EXCEL_LIST = []
 
 
 def parse_args():
@@ -40,7 +40,7 @@ def read(filename: str) -> list:
 
 
 def url_request(url, header, wait_time=3):
-    """请求"""
+    """对传入的URL发起请求，返回一个对象"""
     try:
         request_url_object = requests.get(url=url, headers=header, verify=False, timeout=wait_time)
     except:
@@ -50,9 +50,11 @@ def url_request(url, header, wait_time=3):
 
 
 def analysis(source, url):
+    """从网页源代码当中进行提取url，并且完成对URL的处理"""
     return_url_list = []
-    """数据分析，其中data_list需要从urlGet函数当中获取，get_Url也需要从当中获取"""
-    extracted = tldextract.extract(url) # 判断子域名
+    # 解析传入的url，主要是用作最后与处理后的url的域名的对比，防止误伤
+    extracted = tldextract.extract(url)
+    # 拼接出用于判断的url main_domain
     main_domain = extracted.domain + '.' + extracted.suffix
     pattern_raw = r"""
               (?:"|')                               # Start newline delimiter
@@ -83,10 +85,14 @@ def analysis(source, url):
 
     all_list = list(set(relist))
     for main_url in all_list:
+        # 解析输入的url，主要是用来完整的URL的拼接
         handled_url = urlparse(url)
-        Protocol = handled_url.scheme  # http、https协议
-        Domain = handled_url.netloc  # 域名
-        Path = handled_url.path  # 路径
+        # 解析http、https协议
+        Protocol = handled_url.scheme
+        # 解析出域名
+        Domain = handled_url.netloc
+        # 解析出路径
+        Path = handled_url.path
         if main_url.startswith('/'):
             # 处理以斜杠开头的相对路径
             if main_url.startswith('//'):
@@ -106,9 +112,13 @@ def analysis(source, url):
             # 处理其他情况
             return_url = Protocol + '://' + Domain + '/' + main_url
 
-        extracted1 = tldextract.extract(return_url) # 解析url获取子域名并且判断是否与上面源url的子域名相等。
+        # 解析url获取子域名
+        extracted1 = tldextract.extract(return_url)
+        # 拼接出用于判断的 main_domain1
         main_domain1 = extracted1.domain + '.' + extracted1.suffix
+
         if main_domain == main_domain1:
+            # 如果上述二者相同，则说明为正常资产，否则为无数
             return_url_list.append(return_url)
     return return_url_list
 
@@ -123,7 +133,7 @@ def status(Object):
         return status_code
 
 
-def returnLength(Object):
+def return_length(Object):
     """返回值长度"""
     try:
         return_length = Object.text
@@ -133,7 +143,7 @@ def returnLength(Object):
         return len(return_length)
 
 
-def heightScan(get_url, header, wait_time, high):
+def height_scan(get_url, header, wait_time, high):
     """深度查找"""
     return_murl_list = []
     for num in range(high):
@@ -182,11 +192,9 @@ def decline(url, num):
 def get_title(Object):
     # 使用 BeautifulSoup 解析 HTML
     html = Object.content
-
     # 处理编码问题
     encoding = chardet.detect(html)['encoding']
     html = html.decode(encoding)
-
     # 解析 HTML 内容并获取网站标题
     soup = BeautifulSoup(html, 'html.parser')
     # 获取网页标题
@@ -199,7 +207,7 @@ def get_title(Object):
         return title
 
 
-def writeExcel(dataList):
+def write_excel(dataList):
     # 生成文件名（当前时间戳 + 随机数）
     fileName = int(time.mktime(time.localtime())) + random.randint(1000, 9999)
     # 创建工作簿
@@ -219,9 +227,11 @@ def writeExcel(dataList):
         # 获取当前数据的 URL、状态码、内容长度和标题
         try:
             writeUrl, statusCode, contentLength, url_title = dataList[i]
-        except ValueError:  # 假如不足四个元素就直接忽略
+        except ValueError:
+            # 假如不足四个元素就直接忽略
             continue
-        else:  # 在表格中写入 URL、状态码、内容长度和标题
+        else:
+            # 在表格中写入 URL、状态码、内容长度和标题
             worksheet1.write(i + 1, 0, writeUrl)
             worksheet1.write(i + 1, 1, statusCode)
             worksheet1.write(i + 1, 2, contentLength)
@@ -231,17 +241,16 @@ def writeExcel(dataList):
 
     return fileName
 
-def remove_duplicates(filename, column_name):
+def remove_duplicates(excel_name, column_name):
     # 读取Excel文件
-    data = pd.read_excel(filename)
+    data = pd.read_excel(excel_name)
 
     unique_data = data.drop_duplicates(subset=column_name)
-    fileName = int(time.mktime(time.localtime())) + random.randint(1000, 9999)
-
+    file_name = int(time.mktime(time.localtime())) + random.randint(1000, 9999)
     # 将去重后的数据写入新的Excel文件
-    unique_data.to_excel(fileName, index=False)
+    unique_data.to_excel(file_name, index=False)
     # 删除源表格
-    os.remove(filename)
+    os.remove(excel_name)
 
 
 if __name__ == "__main__":
@@ -249,23 +258,34 @@ if __name__ == "__main__":
     Object = url_request(url=args.url, header=args.header, wait_time=args.wait)
     first_url_list = analysis(Object.text, args.url)  # 此时会获取得到第一次探测url得到的信息
     all_url_list = []
-    if args.height > 0:  # 假如设置了深度查找就步入
-        urlList2 = heightScan(first_url_list, header=args.header, wait_time=args.wait, high=args.height)
-        first_url_list = list(set(first_url_list + urlList2))  # 第二次去重，主要是为了为下面的代码减轻工作量
+    if args.height > 0:
+        # 假如设置了深度查找就步入
+        url_list2 = height_scan(first_url_list, header=args.header, wait_time=args.wait, high=args.height)
+        # 第二次去重，主要是为了为下面的代码减轻工作量
+        first_url_list = list(set(first_url_list + url_list2))
     for url in first_url_list:
-        urlDemo = decline(url, args.level)
-        all_url_list.extend(urlDemo)
-    all_url_list = list(set(all_url_list))  # 此时会进行第三次去重，去重的是总url，主要是去除部分可能一级目录相同的问题
+        # 进行url文件路径的逐级递减
+        demo_url = decline(url, args.level)
+        # 将递减后的demo_url 放入到all_url_list列表当中
+        all_url_list.extend(demo_url)
+        # 此时会进行第三次去重，去重的是总url，主要是去除部分可能一级目录相同的问题
+    all_url_list = list(set(all_url_list))
+
+    # 对总URL列表当中的url进行遍历，检查每一个URL的各种信息
     for url in all_url_list:
         try:
-            time.sleep(args.time)  # 时间间隔
+            # 设置时间间隔
+            time.sleep(args.time)
             result = url_request(url, header=args.header, wait_time=args.wait)
-            code = status(result)  # 状态码
-            outLength = returnLength(result)  # 返回长度
-            title = get_title(result)  # 获得标题
+            # 获取状态码
+            code = status(result)
+            # 获取返回值长度
+            out_length = return_length(result)
+            # 获得标题
+            title = get_title(result)
         except:
             if args.out:
-                excelList.append((url, "ERROR"))
+                EXCEL_LIST.append((url, "ERROR"))
             else:
                 print(url, "----------", "\033[31mERROR\033[0m")
         else:
@@ -273,11 +293,15 @@ if __name__ == "__main__":
                 pass
             else:
                 if args.out:
-                    excelList.append((url, code, outLength, title))  # 将所有的数据进行存储，然后写入Excel
+                    # 将所有的数据进行存储，然后写入Excel
+                    EXCEL_LIST.append((url, code, out_length, title))
 
                 else:
-                    print("\033[34m",url,"\033[0m", "----------", code, "---------", "\033[33m",outLength,"\033[0m", "----------", "\033[32m",title,"\033[0m")
+                    print("\033[34m", url,"\033[0m", "----------", code, "---------", "\033[33m", out_length, "\033[0m", "----------", "\033[32m", title, "\033[0m")
+
+    # 用户选中了要以Excel的形式输出
     if args.out:
-        filename = writeExcel(excelList)
+        filename = write_excel(EXCEL_LIST)
         if args.redup:
+            # 用户自定义去重的列
             remove_duplicates(filename,args.redup)
