@@ -28,6 +28,7 @@ def parse_args():
     parse.add_argument('-B', '--blackStatus', type=ast.literal_eval, default=(404, 502, 500),
                        help="输入您不想要获得的状态码,格式：-s \"(xxx,xxx)\"")
     parse.add_argument('-o', '--out', type=str, help="输出为Excel表格")
+    parse.add_argument('-p','--proxy',type=str,help="设置代理，格式：-p xxx.xxx.xxx.xxx:端口,如果代理需要认证，格式为：username:password@xxx.xxx.xxx.xxx:xxxx")
     parse.add_argument('-d','--redup',type=str,help="需要配合-o来进行输出，有标题，状态码，返回值长度三者可以选择，选中后会对其进行去重操作，默认会对URL进行去重，不可以多选。")
     return parse.parse_args()
 
@@ -41,8 +42,14 @@ def read(filename: str) -> list:
 
 def url_request(url, header, wait_time=3):
     """对传入的URL发起请求，返回一个对象"""
+    proxies = None
+    if args.proxy:
+        proxies = {
+            'http': 'http://' + args.proxy,
+            'https': 'https://' + args.proxy
+        }
     try:
-        request_url_object = requests.get(url=url, headers=header, verify=False, timeout=wait_time)
+        request_url_object = requests.get(url=url, headers=header, verify=False, timeout=wait_time,proxies=proxies)
     except:
         pass
     else:
