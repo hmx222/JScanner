@@ -79,8 +79,7 @@ python Jscanner.py -u "https://example.com/xxxxx" -o excel
 后续会加入：
 
 - 多URL的读取
-- 设置代理
-
+  
 
 
 写于2023.6.4
