@@ -259,11 +259,20 @@ def remove_duplicates(excel_name, column_name):
     # 删除源表格
     os.remove(excel_name)
 
+def sensitiveness_info(source):
+    """对敏感信息的排查"""
+    reg = "(\d{17}[\dXx])|(\d{15})|(\d{11})|([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)"
+    result = re.findall(source,reg)
+    return list(set(result))
 
 if __name__ == "__main__":
     args = parse_args()
     Object = url_request(url=args.url, header=args.header, wait_time=args.wait)
-    first_url_list = analysis(Object.text, args.url)  # 此时会获取得到第一次探测url得到的信息
+    # 此时会获取得到第一次探测url得到的信息
+    first_url_list = analysis(Object.text, args.url)
+    # 筛选出敏感信息
+    sen_info = sensitiveness_info(Object.text)
+
     all_url_list = []
     if args.height > 0:
         # 假如设置了深度查找就步入
@@ -302,9 +311,13 @@ if __name__ == "__main__":
                 if args.out:
                     # 将所有的数据进行存储，然后写入Excel
                     EXCEL_LIST.append((url, code, out_length, title))
-
                 else:
                     print("\033[34m", url,"\033[0m", "----------", code, "---------", "\033[33m", out_length, "\033[0m", "----------", "\033[32m", title, "\033[0m")
+                if code == 200:
+                    sen_info.extend(sensitiveness_info(result.text))
+
+        for info in sen_info:
+            print("\033[0;37;40m",info,"\033[0m")
 
     # 用户选中了要以Excel的形式输出
     if args.out:
