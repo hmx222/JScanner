@@ -377,11 +377,13 @@ if __name__ == "__main__":
             demo_url = decline(url, args.level)
             # 将递减后的demo_url 放入到all_url_list列表当中
             all_url_list.extend(demo_url)
-            # 此时会进行第三次去重，去重的是总url，主要是去除部分可能一级目录相同的问题
-        all_url_list = list(set(all_url_list))
         # 填入findsomething列表
         if args.findsomething:
+            # noinspection PyUnboundLocalVariable
             all_url_list.extend(fingsomething_url_list)
+
+        # 此时会进行第三次去重，去重的是总url，主要是去除部分可能一级目录相同的问题
+        all_url_list = list(set(all_url_list))
         # 识别url特征，并输出
         Feature_recognition(all_url_list)
 
