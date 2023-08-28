@@ -290,7 +290,7 @@ def url_calibrate(path, url):
                 return_url = Protocol + '://' + Domain + main_url
         elif main_url.startswith('./'):
             # 处理以./开头的相对路径
-            return_url = Protocol + '://' + Domain + main_url[2:]
+            return_url = Protocol + '://' + Domain + main_url[1:]
         elif main_url.startswith('../'):
             # 处理以../开头的相对路径
             return_url = Protocol + '://' + Domain + os.path.normpath(os.path.join(Path, main_url))
