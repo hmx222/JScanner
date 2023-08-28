@@ -351,10 +351,9 @@ def Feature_recognition(url_list):
 
 if __name__ == "__main__":
     args = parse_args()
-
     # 判断是否是需要配合findsomething
     if args.findsomething:
-        url_list = url_calibrate(args.findsomething,args.url)
+        fingsomething_url_list = url_calibrate(args.findsomething,args.url)
 
     # 批量读取URL信息
     if args.batch:
@@ -380,6 +379,9 @@ if __name__ == "__main__":
             all_url_list.extend(demo_url)
             # 此时会进行第三次去重，去重的是总url，主要是去除部分可能一级目录相同的问题
         all_url_list = list(set(all_url_list))
+        # 填入findsomething列表
+        if args.findsomething:
+            all_url_list.extend(fingsomething_url_list)
         # 识别url特征，并输出
         Feature_recognition(all_url_list)
 
