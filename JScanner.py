@@ -351,10 +351,6 @@ def Feature_recognition(url_list):
 
 if __name__ == "__main__":
     args = parse_args()
-    # 判断是否是需要配合findsomething
-    if args.findsomething:
-        fingsomething_url_list = url_calibrate(args.findsomething,args.url)
-
     # 批量读取URL信息
     if args.batch:
         url_list = read(args.batch)
@@ -362,6 +358,10 @@ if __name__ == "__main__":
         url_list = [args.url]
 
     for e_url in url_list:
+        # 判断是否是需要配合findsomething
+        if args.findsomething:
+            fingsomething_url_list = url_calibrate(args.findsomething, args.url)
+
         Object = url_request(url=e_url, header=args.header, wait_time=args.wait)
         # 此时会获取得到第一次探测url得到的信息
         first_url_list = analysis(Object.text, e_url)
