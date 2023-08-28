@@ -31,6 +31,7 @@ def parse_args():
     parse.add_argument('-p','--proxy',type=str,help="设置代理，格式：-p xxx.xxx.xxx.xxx:端口,如果代理需要认证，格式为：username:password@xxx.xxx.xxx.xxx:xxxx")
     parse.add_argument('-d','--redup',type=str,help="需要配合-o来进行输出，有标题，状态码，返回值长度三者可以选择，选中后会对其进行去重操作，默认会对URL进行去重，不可以多选。")
     parse.add_argument('-b','--batch',type=str,help="填入文件绝对路径，完成批量扫描，可自动去除空白行")
+    parse.add_argument('-f','--findsomething',type=str,help="将findsomething插件当中的IncompletePath与Path放入文本文件，选项后面接路径,当然你也可以与-u一起使用")
     return parse.parse_args()
 
 
@@ -157,9 +158,9 @@ def height_scan(get_url, header, wait_time, high):
     return_murl_list = []
     for num in range(high):
         for i in get_url:
-            Object = url_request(i, header=header, wait_time=wait_time)
-            if status(Object) == 200:
-                urlResult = analysis(Object.text, i)
+            object = url_request(i, header=header, wait_time=wait_time)
+            if status(object) == 200:
+                urlResult = analysis(object.text, i)
                 return_murl_list.extend(urlResult)
         get_url = []
         get_url.extend(return_murl_list)
@@ -263,8 +264,99 @@ def remove_duplicates(excel_name, column_name,to_name):
     # 删除源表格
     os.remove(excel_name)
 
+
+def url_calibrate(path, url):
+    """配合findsommething来完成资产探测"""
+    return_url_list = []
+    # 解析传入的url，主要是用作最后与处理后的url的域名的对比，防止误伤
+    extracted = tldextract.extract(url)
+    # 拼接出用于判断的url main_domain
+    main_domain = extracted.domain + '.' + extracted.suffix
+
+    for main_url in read(path):
+        # 解析输入的url，主要是用来完整的URL的拼接
+        handled_url = urlparse(url)
+        # 解析http、https协议
+        Protocol = handled_url.scheme
+        # 解析出域名
+        Domain = handled_url.netloc
+        # 解析出路径
+        Path = handled_url.path
+        if main_url.startswith('/'):
+            # 处理以斜杠开头的相对路径
+            if main_url.startswith('//'):
+                return_url = Protocol + ':' + main_url
+            else:  # 此时也就是 / 开头的
+                return_url = Protocol + '://' + Domain + main_url
+        elif main_url.startswith('./'):
+            # 处理以./开头的相对路径
+            return_url = Protocol + '://' + Domain + main_url[2:]
+        elif main_url.startswith('../'):
+            # 处理以../开头的相对路径
+            return_url = Protocol + '://' + Domain + os.path.normpath(os.path.join(Path, main_url))
+        elif main_url.startswith('http') or main_url.startswith('https'):
+            # 处理以http或https开头的绝对路径
+            return_url = main_url
+        else:
+            # 处理其他情况
+            return_url = Protocol + '://' + Domain + '/' + main_url
+
+        # 解析url获取子域名
+        extracted1 = tldextract.extract(return_url)
+        # 拼接出用于判断的 main_domain1
+        main_domain1 = extracted1.domain + '.' + extracted1.suffix
+
+        if main_domain == main_domain1:
+            # 如果上述二者相同，则说明为正常资产，否则为无效
+            return_url_list.append(return_url)
+    return return_url_list
+
+def Feature_recognition(url_list):
+    # 对总URL列表当中的url进行遍历，检查每一个URL的各种信息，识别其特征，并输出
+    for url in url_list:
+        try:
+            # 设置时间间隔
+            time.sleep(args.time)
+            result = url_request(url, header=args.header, wait_time=args.wait)
+            # 获取状态码
+            code = status(result)
+            # 获取返回值长度
+            out_length = return_length(result)
+            # 获得标题
+            title = get_title(result)
+        except:
+            if args.out:
+                EXCEL_LIST.append((url, "ERROR"))
+            else:
+                print(url, "----------", "\033[31mERROR\033[0m")
+        else:
+            if code in args.blackStatus:
+                pass
+            else:
+                if args.out:
+                    # 将所有的数据进行存储，然后写入Excel
+                    EXCEL_LIST.append((url, code, out_length, title))
+                else:
+                    print("\033[34m", url,"\033[0m", "----------", code, "---------", "\033[33m", out_length, "\033[0m", "----------", "\033[32m", title, "\033[0m")
+
+    # 用户选中了要以Excel的形式输出
+    if args.out:
+        name = e_url.replace(':','_')
+        name = name.replace('/','_')
+        filename = write_excel(EXCEL_LIST,name)
+        if args.redup:
+            # 用户自定义去重的列
+            remove_duplicates(filename,args.redup,name)
+
+
 if __name__ == "__main__":
     args = parse_args()
+
+    # 判断是否是需要配合findsomething
+    if args.findsomething:
+        url_list = url_calibrate(args.findsomething,args.url)
+
+    # 批量读取URL信息
     if args.batch:
         url_list = read(args.batch)
     else:
@@ -288,39 +380,6 @@ if __name__ == "__main__":
             all_url_list.extend(demo_url)
             # 此时会进行第三次去重，去重的是总url，主要是去除部分可能一级目录相同的问题
         all_url_list = list(set(all_url_list))
+        # 识别url特征，并输出
+        Feature_recognition(all_url_list)
 
-        # 对总URL列表当中的url进行遍历，检查每一个URL的各种信息
-        for url in all_url_list:
-            try:
-                # 设置时间间隔
-                time.sleep(args.time)
-                result = url_request(url, header=args.header, wait_time=args.wait)
-                # 获取状态码
-                code = status(result)
-                # 获取返回值长度
-                out_length = return_length(result)
-                # 获得标题
-                title = get_title(result)
-            except:
-                if args.out:
-                    EXCEL_LIST.append((url, "ERROR"))
-                else:
-                    print(url, "----------", "\033[31mERROR\033[0m")
-            else:
-                if code in args.blackStatus:
-                    pass
-                else:
-                    if args.out:
-                        # 将所有的数据进行存储，然后写入Excel
-                        EXCEL_LIST.append((url, code, out_length, title))
-                    else:
-                        print("\033[34m", url,"\033[0m", "----------", code, "---------", "\033[33m", out_length, "\033[0m", "----------", "\033[32m", title, "\033[0m")
-
-        # 用户选中了要以Excel的形式输出
-        if args.out:
-            name = e_url.replace(':','_')
-            name = name.replace('/','_')
-            filename = write_excel(EXCEL_LIST,name)
-            if args.redup:
-                # 用户自定义去重的列
-                remove_duplicates(filename,args.redup,name)
