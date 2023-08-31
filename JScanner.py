@@ -1,5 +1,5 @@
 import requests
-import argparse, urllib3, re, ast, os, time, random,warnings,tldextract,chardet
+import argparse, urllib3, re, ast, os, time, random,warnings,tldextract,chardet,signal
 from urllib.parse import urlparse
 import xlsxwriter as xw
 import pandas as pd
@@ -311,42 +311,51 @@ def url_calibrate(path, url):
             return_url_list.append(return_url)
     return return_url_list
 
+def exit(signum, frame):
+    print("程序强制终止")
+    os._exit(0)
+
 def Feature_recognition(url_list):
     # 对总URL列表当中的url进行遍历，检查每一个URL的各种信息，识别其特征，并输出
-    for url in url_list:
-        try:
-            # 设置时间间隔
-            time.sleep(args.time)
-            result = url_request(url, header=args.header, wait_time=args.wait)
-            # 获取状态码
-            code = status(result)
-            # 获取返回值长度
-            out_length = return_length(result)
-            # 获得标题
-            title = get_title(result)
-        except:
-            if args.out:
-                EXCEL_LIST.append((url, "ERROR"))
-            else:
-                print(url, "----------", "\033[31mERROR\033[0m")
-        else:
-            if code in args.blackStatus:
-                pass
-            else:
+        for url in url_list:
+            # 接受信号
+            signal.signal(signal.SIGINT, exit)
+            signal.signal(signal.SIGTERM, exit)
+            try:
+                # 设置时间间隔
+                time.sleep(args.time)
+                result = url_request(url, header=args.header, wait_time=args.wait)
+                # 获取状态码
+                code = status(result)
+                # 获取返回值长度
+                out_length = return_length(result)
+                # 获得标题
+                title = get_title(result)
+            except:
                 if args.out:
-                    # 将所有的数据进行存储，然后写入Excel
-                    EXCEL_LIST.append((url, code, out_length, title))
+                    EXCEL_LIST.append((url, "ERROR"))
                 else:
-                    print("\033[34m", url,"\033[0m", "----------", code, "---------", "\033[33m", out_length, "\033[0m", "----------", "\033[32m", title, "\033[0m")
+                    print(url, "----------", "\033[31mERROR\033[0m")
+            else:
+                if code in args.blackStatus:
+                    pass
+                else:
+                    if args.out:
+                        # 将所有的数据进行存储，然后写入Excel
+                        EXCEL_LIST.append((url, code, out_length, title))
+                    else:
+                        print("\033[34m", url,"\033[0m", "----------", code, "---------", "\033[33m", out_length, "\033[0m", "----------", "\033[32m", title, "\033[0m")
 
-    # 用户选中了要以Excel的形式输出
-    if args.out:
-        name = e_url.replace(':','_')
-        name = name.replace('/','_')
-        filename = write_excel(EXCEL_LIST,name)
-        if args.redup:
-            # 用户自定义去重的列
-            remove_duplicates(filename,args.redup,name)
+        # 用户选中了要以Excel的形式输出
+        if args.out:
+            # 为了方便于辨识不同域名之间的文件
+            name = e_url.replace(':','_')
+            name = name.replace('/','_')
+            # 写入Excel文件
+            filename = write_excel(EXCEL_LIST,name)
+            if args.redup:
+                # 用户自定义去重的列
+                remove_duplicates(filename,args.redup,name)
 
 
 if __name__ == "__main__":
@@ -360,27 +369,27 @@ if __name__ == "__main__":
     for e_url in url_list:
         # 判断是否是需要配合findsomething
         if args.findsomething:
-            fingsomething_url_list = url_calibrate(args.findsomething, args.url)
-
+            fingsomething_result = url_calibrate(args.findsomething, args.url)
+        # 进行一次请求
         Object = url_request(url=e_url, header=args.header, wait_time=args.wait)
         # 此时会获取得到第一次探测url得到的信息
-        first_url_list = analysis(Object.text, e_url)
+        analysis_result = analysis(Object.text, e_url)
 
         all_url_list = []
         if args.height > 0:
             # 假如设置了深度查找就步入
-            url_list2 = height_scan(first_url_list, header=args.header, wait_time=args.wait, high=args.height)
+            height_scan_result = height_scan(analysis_result, header=args.header, wait_time=args.wait, high=args.height)
             # 第二次去重，主要是为了为下面的代码减轻工作量
-            first_url_list = list(set(first_url_list + url_list2))
-        for url in first_url_list:
+            analysis_result = list(set(analysis_result + height_scan_result))
+        for url in analysis_result:
             # 进行url文件路径的逐级递减
-            demo_url = decline(url, args.level)
+            decline_result = decline(url, args.level)
             # 将递减后的demo_url 放入到all_url_list列表当中
-            all_url_list.extend(demo_url)
+            all_url_list.extend(decline_result)
         # 填入findsomething列表
         if args.findsomething:
             # noinspection PyUnboundLocalVariable
-            all_url_list.extend(fingsomething_url_list)
+            all_url_list.extend(fingsomething_result)
 
         # 此时会进行第三次去重，去重的是总url，主要是去除部分可能一级目录相同的问题
         all_url_list = list(set(all_url_list))
