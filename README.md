@@ -16,6 +16,17 @@
 - 支持深度查找
 - 支持对标题与返回值长度的输出
 - 支持多URL的查找
+- 配合findsomething筛选出有效路径
+
+##### 推荐用法（在不配合findsomething插件下）
+```shell
+python JScanner.py -u "http://example.com" -o excel -T 0.1 
+```
+##### 推荐用法（配合findsomething插件下）
+path.txt内容应该为findsomething得来的路径
+```shell
+python JScanner.py -u "http://example.com" -o excel -T 0.1 -f path.txt
+```
 
 #### 这款工具怎么使用？
 
@@ -71,6 +82,13 @@ python Jscanner.py -u "https://example.com/xxxxx" -B "(404,502)"
 ##### 输出为Excel表格的形式（推荐）
 ```shell
 python Jscanner.py -u "https://example.com/xxxxx" -o excel
+```
+##### 配合findsomething插件来完成信息收集
+将findsomething当中的路径复制到文本文件当中，使用下面的命令
+下面的命令不仅会使用当前的脚步内置的正则表达式来进行匹配，还会使用path.txt文件当中的路径进行拼接，最后去重输出。
+
+```shell
+python Jscanner.py -u "https://example.com/xxxxx" -f path.txt
 ```
 
 .........
