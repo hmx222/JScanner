@@ -93,6 +93,7 @@ python Jscanner.py -u "https://example.com/xxxxx" -f path.txt
 
 .........
 
+可以看看工具[ParamScanner](https://github.com/hmx222/ParamScanner) ，后续Jscanner也会以burp插件的形式进行发布（当然python版本也会更新）
 
 
 写于2023.6.4
