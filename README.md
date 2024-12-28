@@ -1,5 +1,7 @@
 ### JScanner
 
+新版本(JScanner2)[https://github.com/hmx222/JScanner2]，全新代码，更多功能，更多规则
+
 #### 为什么要写这款工具？
 
 在2022年，我测试了无数网站，但是某些网站无论如何都不能搞定它，看了好多别人的实战思路，我总结出来了一点，那些大佬们总是会在前期在js文件当中收集信息，收集到别人在fofa还是鹰图上面探测不到了信息。于是我便想写一款工具来帮助自己在前期更好的探测。
@@ -92,8 +94,6 @@ python Jscanner.py -u "https://example.com/xxxxx" -f path.txt
 ```
 
 .........
-
-可以看看工具[ParamScanner](https://github.com/hmx222/ParamScanner) ，后续Jscanner也会以burp插件的形式进行发布（当然python版本也会更新）
 
 
 写于2023.6.4
