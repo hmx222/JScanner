@@ -1,4 +1,4 @@
-### JScanner2
+### JScanner
 
 新版本[JScanner2](https://github.com/hmx222/JScanner2)，全新代码，更多功能，更多规则
 
