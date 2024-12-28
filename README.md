@@ -1,6 +1,6 @@
-### JScanner
+### JScanner2
 
-新版本(JScanner2)[https://github.com/hmx222/JScanner2]，全新代码，更多功能，更多规则
+新版本[JScanner2](https://github.com/hmx222/JScanner2)，全新代码，更多功能，更多规则
 
 #### 为什么要写这款工具？
 
